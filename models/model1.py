@@ -209,7 +209,7 @@ root.mainloop()
 
 def is_valid_input(text):
     words = text.split()
-    if len(words) < 8 or len(words) > 35:
+    if len(words) < 5 or len(words) > 35:
         return False
 
     # Allow alphabetic characters, spaces, commas, and exclamation marks
