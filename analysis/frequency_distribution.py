@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-data = pd.read_csv('../data/emotions.csv')
+data = pd.read_csv('data\emotions.csv')
 
 label_map = {0: 'sadness', 1: 'joy', 2: 'love', 3: 'anger', 4: 'fear', 5: 'surprise'}
 data['emotion'] = data['label'].map(label_map)

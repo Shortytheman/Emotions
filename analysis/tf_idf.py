@@ -2,7 +2,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import pandas as pd
 import numpy as np
 
-data = pd.read_csv('../data/emotions.csv')
+data = pd.read_csv('data\emotions.csv')
 
 # Initialize the TF-IDF Vectorizer with stop words removed
 tfidf_vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')

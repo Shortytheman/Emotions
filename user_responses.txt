@@ -1,0 +1,4 @@
+Input: eah, Predicted Emotion: joy, User Emotion: anger
+Input: hey, Predicted Emotion: joy, User Emotion: sadness
+Input: I love that i have vacation right now yeah, Predicted Emotion: joy, User Emotion: joy
+Input: i love the person next to me yeah i really do, Predicted Emotion: joy, User Emotion: love

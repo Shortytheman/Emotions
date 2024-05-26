@@ -114,69 +114,125 @@ def predict_emotion(message, model, vectorizer, emotion_map):
 #GUI SETUP-----------------------------------------
 
 flag = True
+user_responses = []
 
 def submit_input(event=None):
-    global flag
-    prediction_text = prediction_entry.get()
+    global flag, prediction_text
+    prediction_text = prediction_entry.get("1.0", tk.END).strip()
     if prediction_text.lower() == "exit":
         flag = False
         root.quit()
         return
-    
+
     predicted_emotion = predict_emotion(prediction_text, model, vectorizer, emotion_map)
     output_text = f"Predicted Emotion: {predicted_emotion}\n"
-
-    
     output_label.config(text=output_text)
     
-    # Clear the entry field
-    prediction_entry.delete(0, tk.END)
-
+    # Disable the submit button and prediction entry after submission
+    submit_button.config(state=tk.DISABLED)
+    prediction_entry.config(state=tk.DISABLED)
+    
+    # Show the emotion buttons and emotion label
+    emotion_label.grid(row=4, column=0, columnspan=3, pady=10, sticky="ew")
+    for button in emotion_buttons:
+        button.grid(pady=2, padx=2)
 
 def reset_gui():
+    print("Resetting GUI...")
     output_label.config(text="")
-    prediction_entry.delete(0, tk.END)
+    prediction_entry.config(state=tk.NORMAL)  # Enable entry field before resetting
+    prediction_entry.delete("1.0", tk.END)
     prediction_entry.focus()
+    submit_button.config(state=tk.NORMAL)
+    emotion_label.grid_remove()
+    for button in emotion_buttons:
+        button.grid_remove()
+
+def save_response(emotion):
+    global prediction_text
+    user_response = {
+        "input_text": prediction_text,
+        "predicted_emotion": predict_emotion(prediction_text, model, vectorizer, emotion_map),
+        "user_emotion": emotion
+    }
+    user_responses.append(user_response)
+    print(f"Response saved: {user_response}")  # Debug statement
+    messagebox.showinfo("Saved", f"Your response has been saved: {emotion}")
+    reset_gui()
+
+def exit_application():
+    global flag
+    flag = False
+    root.quit()
 
 total_predictions = len(y_test)
 correct_predictions = (y_test == y_pred).sum()
 accuracy_percentage = (correct_predictions / total_predictions) * 100
 
-while flag:
-    root = tk.Tk()
-    root.title("Prediction GUI")
+root = tk.Tk()
+root.title("Prediction GUI")
 
-    # Set font size for labels and buttons
-    label_font = ("Arial", 24)
-    button_font = ("Arial", 20)
+# Set font size for labels and buttons
+label_font = ("Arial", 24)
+button_font = ("Arial", 20)
 
-    tk.Label(root, text=f"Model prediction accuracy: {accuracy_percentage:.2f}%\n\nPlease enter the prediction message, or \"exit\" to exit the loop.",
-             font=label_font).pack(pady=5)
-    prediction_entry = tk.Entry(root, font=label_font)
-    prediction_entry.pack(pady=5)
+tk.Label(root, text=f"Model prediction accuracy: {accuracy_percentage:.2f}%\n\nPlease enter the prediction message, or \"exit\" to exit the loop.",
+         font=label_font).grid(row=0, column=0, columnspan=3, pady=5)
+prediction_entry = tk.Text(root, font=label_font, width=50, height=5)
+prediction_entry.grid(row=1, column=0, columnspan=3, pady=5)
 
-    submit_button = tk.Button(root, text="Submit", command=submit_input, font=button_font)
-    submit_button.pack(pady=10)
+submit_button = tk.Button(root, text="Submit", command=submit_input, font=button_font)
+submit_button.grid(row=2, column=0, padx=2, pady=5, sticky="ew")
 
-    reset_button = tk.Button(root, text="Reset", command=reset_gui, font=button_font)
-    reset_button.pack(pady=10)
+reset_button = tk.Button(root, text="Reset", command=reset_gui, font=button_font)
+reset_button.grid(row=2, column=1, padx=2, pady=5, sticky="ew")
 
-    output_label = tk.Label(root, text="", fg="blue", font=label_font)
-    output_label.pack(pady=10)
+exit_button = tk.Button(root, text="Exit", command=exit_application, font=button_font)
+exit_button.grid(row=2, column=2, padx=2, pady=5, sticky="ew")
 
-    # Bind the <Return> key to submit_input function
-    root.bind("<Return>", submit_input)
+output_label = tk.Label(root, text="", fg="blue", font=label_font)
+output_label.grid(row=3, column=0, columnspan=3, pady=10)
 
-    root.mainloop()
+# Create label for emotion selection
+emotion_label = tk.Label(root, text="Choose the correct emotion based on your input:", font=label_font)
 
-    # Calculate accuracy for each prediction
-    if not flag:
-        break  # Exit the loop if the user exits
+# Create buttons for each emotion and hide them initially
+emotions = ['sadness', 'joy', 'love', 'anger', 'fear', 'surprise']
+emotion_buttons = []
+for i, emotion in enumerate(emotions):
+    button = tk.Button(root, text=emotion, command=lambda e=emotion: save_response(e), font=button_font)
+    emotion_buttons.append(button)
+    button.grid(row=5 + i // 3, column=i % 3, pady=2, padx=2)
+    button.grid_remove()
 
-    # Display accuracy for the last prediction
-    if y_test is not None:
-        last_prediction_text = prediction_text
-        last_predicted_emotion = predicted_emotion
-        last_actual_emotion = emotion_map[y_test[-1]]
-        last_prediction_accuracy = "Correct" if last_predicted_emotion == last_actual_emotion else "Incorrect"
-        logger.info(f"Input: {last_prediction_text}, Predicted Emotion: {last_predicted_emotion}, Actual Emotion: {last_actual_emotion}, Accuracy: {last_prediction_accuracy}")
+root.mainloop()
+
+def is_valid_input(text):
+    words = text.split()
+    if len(words) < 8 or len(words) > 35:
+        return False
+
+    if not re.match(r'^[A-Za-z\s]+$', text.strip()):
+        return False
+
+    return True
+
+
+with open("user_responses.txt", "a") as file:
+    for response in user_responses:
+        input_text = response['input_text']
+        if is_valid_input(input_text):
+            file.write(f"Input: {input_text}, Predicted Emotion: {response['predicted_emotion']}, User Emotion: {response['user_emotion']}\n")
+
+
+with open("data\\newdata.csv", "a") as file:
+    # Iterate over user_responses
+    for response in user_responses:
+        input_text = response['input_text']
+        user_emotion = response['user_emotion']
+        
+        if is_valid_input(input_text):
+            mapped_user_emotion = next(key for key, value in emotion_map.items() if value == user_emotion)
+            
+            # Write to the file with mapped emotions
+            file.write(f"{input_text}, {mapped_user_emotion}\n")
