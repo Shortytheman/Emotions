@@ -219,13 +219,6 @@ def is_valid_input(text):
     return True
 
 
-with open("user_responses.txt", "a") as file:
-    for response in user_responses:
-        input_text = response['input_text']
-        if is_valid_input(input_text):
-            file.write(f"Input: {input_text}, Predicted Emotion: {response['predicted_emotion']}, User Emotion: {response['user_emotion']}\n")
-
-
 with open("data\\newdata.csv", "a") as file:
     # Iterate over user_responses
     for response in user_responses:
