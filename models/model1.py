@@ -207,13 +207,19 @@ for i, emotion in enumerate(emotions):
 
 root.mainloop()
 
+total_predictions = len(user_responses)
+correct_predictions = sum(1 for response in user_responses if response['predicted_emotion'] == response['user_emotion'])
+accuracy_percentage = (correct_predictions / total_predictions) * 100
+
+# Show accuracy message
+accuracy_message = f"The bot has been {accuracy_percentage:.2f}% accurate based on your responses."
+messagebox.showinfo("Accuracy", accuracy_message)
+
 def is_valid_input(text):
     words = text.split()
     if len(words) < 5 or len(words) > 35:
         return False
-
-    # Allow alphabetic characters, spaces, commas, and exclamation marks
-    if not re.match(r'^[A-Za-z\s,!?]+$', text.strip()):
+    if not re.match(r'^[A-Za-z\s,!?\'\']+$', text.strip()):
         return False
 
     return True
