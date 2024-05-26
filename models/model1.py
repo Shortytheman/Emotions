@@ -212,7 +212,8 @@ def is_valid_input(text):
     if len(words) < 8 or len(words) > 35:
         return False
 
-    if not re.match(r'^[A-Za-z\s]+$', text.strip()):
+    # Allow alphabetic characters, spaces, commas, and exclamation marks
+    if not re.match(r'^[A-Za-z\s,!?]+$', text.strip()):
         return False
 
     return True
