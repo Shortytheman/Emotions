@@ -77,9 +77,8 @@ logger.info("Text data vectorized successfully.")
 class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
 
 
-
 logger.info("Training Logistic Regression model with class weights...")
-model = LogisticRegression(max_iter=1000, verbose=1, class_weight=dict(zip(np.unique(y_train), class_weights)))
+model = LogisticRegression(solver='liblinear', max_iter=100, C=4, class_weight=dict(zip(np.unique(y_train), class_weights)))
 model.fit(X_train_tfidf, y_train)
 logger.info("Model trained successfully.")
 
@@ -138,9 +137,8 @@ def submit_input(event=None):
         button.grid(pady=2, padx=2)
 
 def reset_gui():
-    print("Resetting GUI...")
     output_label.config(text="")
-    prediction_entry.config(state=tk.NORMAL)  # Enable entry field before resetting
+    prediction_entry.config(state=tk.NORMAL)
     prediction_entry.delete("1.0", tk.END)
     prediction_entry.focus()
     submit_button.config(state=tk.NORMAL)
@@ -209,7 +207,10 @@ root.mainloop()
 
 total_predictions = len(user_responses)
 correct_predictions = sum(1 for response in user_responses if response['predicted_emotion'] == response['user_emotion'])
-accuracy_percentage = (correct_predictions / total_predictions) * 100
+if correct_predictions != 0 or total_predictions != 0:
+    accuracy_percentage = (correct_predictions / total_predictions) * 100
+else:
+    accuracy_percentage = 0
 
 # Show accuracy message
 accuracy_message = f"The bot has been {accuracy_percentage:.2f}% accurate based on your responses."
