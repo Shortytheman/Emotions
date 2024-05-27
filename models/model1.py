@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Dataset preparations-----------------------
 logger.info("Loading dataset...")
-df = pd.read_csv('data/emotions.csv')
+df = pd.read_csv('../data/emotions.csv')
 df.drop(columns='Unnamed: 0', inplace=True)
 
 def clean_text(text):
@@ -83,8 +83,6 @@ model.fit(X_train_tfidf, y_train)
 logger.info("Model trained successfully.")
 
 
-
-
 logger.info("Evaluating the model...")
 y_pred = model.predict(X_test_tfidf)
 
@@ -93,18 +91,11 @@ logger.info("Classification Report:\n" + classification_report(y_test, y_pred, t
 
 
 def predict_emotion(message, model, vectorizer, emotion_map):
-
     cleaned_message = clean_text(message)
-    
-
     message_tfidf = vectorizer.transform([cleaned_message])
-    
- 
     prediction = model.predict(message_tfidf)
-    
-
     predicted_emotion = emotion_map[prediction[0]]
-    
+    print(f"message: {message}\nmessage_tfidf: {message_tfidf}\nprediction: {prediction}\npredicted_emotion: {predicted_emotion}")
     return predicted_emotion
 
 
@@ -226,7 +217,7 @@ def is_valid_input(text):
     return True
 
 
-with open("data\\newdata.csv", "a") as file:
+with open("../data/newdata.csv", "a") as file:
     # Iterate over user_responses
     for response in user_responses:
         input_text = response['input_text']
