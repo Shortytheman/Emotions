@@ -11,6 +11,7 @@ from tensorflow.keras.losses import SparseCategoricalCrossentropy
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.metrics import SparseCategoricalAccuracy
 from sklearn.utils.class_weight import compute_class_weight
+from tqdm import tqdm
 
 # Suppress TensorFlow logs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -19,10 +20,17 @@ os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = 'true'
 # Reduce transformers logging verbosity
 transformers_logging.set_verbosity_error()
 
+# Enable mixed precision
+tf.keras.mixed_precision.set_global_policy('mixed_float16')
+
 # Load the full dataset
 print("Loading dataset...")
-data = pd.read_csv('/mnt/data/emotions_cleaned.csv')
+data = pd.read_csv('../data/emotions_cleaned.csv')
 print("Dataset loaded.")
+
+# Use a subset of the data for faster experimentation
+subset_size = 50000  # Adjust based on your requirements
+data = data.sample(n=subset_size, random_state=42)
 
 # Map numerical labels to emotion names
 label_map = {0: 'sadness', 1: 'joy', 2: 'love', 3: 'anger', 4: 'fear', 5: 'surprise'}
@@ -45,17 +53,33 @@ print(f"Data split. Training samples: {len(X_train)}, Test samples: {len(X_test)
 
 # Calculate class weights
 class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
-class_weights = {i: weight for i, weight in enumerate(class_weights)}
+class_weights = tf.constant(class_weights, dtype=tf.float32)
 
 
-# Tokenize the text using BERT tokenizer
+# Tokenize the text using BERT tokenizer with progress bar
 def prepare_bert_data(X_train, X_test, max_length=128):
     print("Tokenizing data...")
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    train_encodings = tokenizer(list(X_train), truncation=True, padding=True, max_length=max_length)
-    test_encodings = tokenizer(list(X_test), truncation=True, padding=True, max_length=max_length)
-    train_dataset = tf.data.Dataset.from_tensor_slices((dict(train_encodings), y_train))
-    test_dataset = tf.data.Dataset.from_tensor_slices((dict(test_encodings), y_test))
+
+    # Tokenize training data with progress bar
+    train_encodings = []
+    for text in tqdm(X_train, desc="Tokenizing training data"):
+        encodings = tokenizer(text, truncation=True, padding='max_length', max_length=max_length)
+        train_encodings.append(encodings)
+
+    # Tokenize test data with progress bar
+    test_encodings = []
+    for text in tqdm(X_test, desc="Tokenizing test data"):
+        encodings = tokenizer(text, truncation=True, padding='max_length', max_length=max_length)
+        test_encodings.append(encodings)
+
+    # Convert lists of encodings to dictionaries
+    train_encodings = {key: np.array([enc[key] for enc in train_encodings]) for key in train_encodings[0].keys()}
+    test_encodings = {key: np.array([enc[key] for enc in test_encodings]) for key in test_encodings[0].keys()}
+
+    train_dataset = tf.data.Dataset.from_tensor_slices((train_encodings, y_train))
+    test_dataset = tf.data.Dataset.from_tensor_slices((test_encodings, y_test))
+
     print("Data tokenized.")
     return train_dataset, test_dataset, tokenizer
 
@@ -71,9 +95,16 @@ loss_fn = SparseCategoricalCrossentropy(from_logits=True)
 metric = SparseCategoricalAccuracy('accuracy')
 print("BERT model built.")
 
+# Calculate steps per epoch for the subset
+train_samples = len(X_train)
+batch_size = 16  # As specified
+steps_per_epoch = train_samples // batch_size
+print(f"Training samples: {train_samples}")
+print(f"Batch size: {batch_size}")
+print(f"Steps per epoch: {steps_per_epoch}")
+
 # Custom training loop with early stopping and class weights
 epochs = 5
-batch_size = 16
 
 train_dataset = train_dataset.shuffle(10000).batch(batch_size)
 test_dataset = test_dataset.batch(batch_size)
@@ -89,11 +120,12 @@ for epoch in range(epochs):
             loss = loss_fn(batch_labels, outputs.logits)
             logits = outputs.logits
             # Apply class weights
-            weighted_loss = tf.reduce_mean(loss * tf.gather(class_weights, batch_labels))
+            weights = tf.gather(class_weights, batch_labels)
+            weighted_loss = tf.reduce_mean(loss * weights)
         gradients = tape.gradient(weighted_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-        if step % 10 == 0:
+        if step % 100 == 0:  # Adjust the logging frequency
             print(f"Step {step}: loss = {weighted_loss.numpy()}")
 
     # Validation loop
