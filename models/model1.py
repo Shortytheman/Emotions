@@ -1,4 +1,3 @@
-# Imports-------------------------------------------
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,21 +6,21 @@ import re
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 import logging
 import tkinter as tk
 from tkinter import messagebox
 from sklearn.utils.class_weight import compute_class_weight
-#-------------------------------------------
 
+# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Dataset preparations-----------------------
+# Load and prepare dataset
 logger.info("Loading dataset...")
-df = pd.read_csv('../data/emotions.csv')
-df.drop(columns='Unnamed: 0', inplace=True)
+df = pd.read_csv('../data/emotions_cleaned.csv')
 
+# Define clean_text function
 def clean_text(text):
     text = text.lower()  # Lowercase text
     text = re.sub(r'\b\w{1,2}\b', '', text)  # Remove short words
@@ -29,10 +28,7 @@ def clean_text(text):
     text = re.sub(r'\s+', ' ', text).strip()  # Remove extra spaces
     return text
 
-logger.info("Cleaning text data...")
-df['cleaned_text'] = df['text'].apply(clean_text)
-
-# Mapping labels to readable form for visualization
+# Map labels to readable form for visualization
 emotion_map = {
     0: 'sadness',
     1: 'joy',
@@ -43,23 +39,11 @@ emotion_map = {
 }
 df['label_name'] = df['label'].map(emotion_map)
 
-
-# logger.info("Plotting data distribution...")
-# background_color = '#5fa1bc'
-# sns.set_theme(style="whitegrid", rc={"axes.facecolor": background_color, 'figure.facecolor': background_color})
-# count = df['label_name'].value_counts()
-# fig, axs = plt.subplots(1, 2, figsize=(12, 6), facecolor=background_color)
-# palette = sns.color_palette("bright", len(count))
-# sns.set_palette(palette)
-# axs[0].pie(count, labels=count.index, autopct='%1.1f%%', startangle=140)
-# axs[0].set_title('Distribution of Categories', fontsize=15, fontweight='bold')
-# sns.barplot(x=count.index, y=count.values, ax=axs[1])
-# axs[1].set_title('Count of Categories', fontsize=15, fontweight='bold')
-# plt.tight_layout()
-# plt.show()
-
 # Converting labels back to numeric for training
 df['label'] = df['label_name'].map({v: k for k, v in emotion_map.items()})
+
+# Check for NaN values and handle them
+df['cleaned_text'] = df['cleaned_text'].fillna('')
 
 logger.info("Splitting data into train and test sets...")
 X = df['cleaned_text']
@@ -67,42 +51,38 @@ y = df['label']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Vectorizing the text data
+# Vectorize text data
 logger.info("Vectorizing text data...")
-vectorizer = TfidfVectorizer(max_features=5000)
+vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
 X_train_tfidf = vectorizer.fit_transform(X_train)
 X_test_tfidf = vectorizer.transform(X_test)
 logger.info("Text data vectorized successfully.")
 
+# Compute class weights
 class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
 
-
+# Train Logistic Regression model with class weights
 logger.info("Training Logistic Regression model with class weights...")
-model = LogisticRegression(solver='liblinear', max_iter=100, C=4, class_weight=dict(zip(np.unique(y_train), class_weights)))
+model = LogisticRegression(solver='liblinear', max_iter=100, C=3, class_weight=dict(zip(np.unique(y_train), class_weights)))
 model.fit(X_train_tfidf, y_train)
 logger.info("Model trained successfully.")
 
-
+# Evaluate the model
 logger.info("Evaluating the model...")
 y_pred = model.predict(X_test_tfidf)
 
 logger.info(f"Accuracy: {accuracy_score(y_test, y_pred)}")
 logger.info("Classification Report:\n" + classification_report(y_test, y_pred, target_names=list(emotion_map.values())))
 
-
+# Define predict_emotion function
 def predict_emotion(message, model, vectorizer, emotion_map):
     cleaned_message = clean_text(message)
     message_tfidf = vectorizer.transform([cleaned_message])
     prediction = model.predict(message_tfidf)
     predicted_emotion = emotion_map[prediction[0]]
-    print(f"message: {message}\nmessage_tfidf: {message_tfidf}\nprediction: {prediction}\npredicted_emotion: {predicted_emotion}")
     return predicted_emotion
 
-
-
-
-#GUI SETUP-----------------------------------------
-
+# GUI Setup
 flag = True
 user_responses = []
 
@@ -118,11 +98,9 @@ def submit_input(event=None):
     output_text = f"Predicted Emotion: {predicted_emotion}\n"
     output_label.config(text=output_text)
     
-    # Disable the submit button and prediction entry after submission
     submit_button.config(state=tk.DISABLED)
     prediction_entry.config(state=tk.DISABLED)
     
-    # Show the emotion buttons and emotion label
     emotion_label.grid(row=4, column=0, columnspan=3, pady=10, sticky="ew")
     for button in emotion_buttons:
         button.grid(pady=2, padx=2)
@@ -145,7 +123,7 @@ def save_response(emotion):
         "user_emotion": emotion
     }
     user_responses.append(user_response)
-    print(f"Response saved: {user_response}")  # Debug statement
+    print(f"Response saved: {user_response}")
     messagebox.showinfo("Saved", f"Your response has been saved: {emotion}")
     reset_gui()
 
@@ -161,7 +139,6 @@ accuracy_percentage = (correct_predictions / total_predictions) * 100
 root = tk.Tk()
 root.title("Prediction GUI")
 
-# Set font size for labels and buttons
 label_font = ("Arial", 24)
 button_font = ("Arial", 20)
 
@@ -182,10 +159,8 @@ exit_button.grid(row=2, column=2, padx=2, pady=5, sticky="ew")
 output_label = tk.Label(root, text="", fg="blue", font=label_font)
 output_label.grid(row=3, column=0, columnspan=3, pady=10)
 
-# Create label for emotion selection
 emotion_label = tk.Label(root, text="Choose the correct emotion based on your input:", font=label_font)
 
-# Create buttons for each emotion and hide them initially
 emotions = ['sadness', 'joy', 'love', 'anger', 'fear', 'surprise']
 emotion_buttons = []
 for i, emotion in enumerate(emotions):
@@ -198,12 +173,8 @@ root.mainloop()
 
 total_predictions = len(user_responses)
 correct_predictions = sum(1 for response in user_responses if response['predicted_emotion'] == response['user_emotion'])
-if correct_predictions != 0 or total_predictions != 0:
-    accuracy_percentage = (correct_predictions / total_predictions) * 100
-else:
-    accuracy_percentage = 0
+accuracy_percentage = (correct_predictions / total_predictions) * 100 if total_predictions > 0 else 0
 
-# Show accuracy message
 accuracy_message = f"The bot has been {accuracy_percentage:.2f}% accurate based on your responses."
 messagebox.showinfo("Accuracy", accuracy_message)
 
@@ -213,18 +184,53 @@ def is_valid_input(text):
         return False
     if not re.match(r'^[A-Za-z\s,!?\'\']+$', text.strip()):
         return False
-
     return True
 
-
 with open("../data/newdata.csv", "a") as file:
-    # Iterate over user_responses
     for response in user_responses:
         input_text = response['input_text']
         user_emotion = response['user_emotion']
         
         if is_valid_input(input_text):
             mapped_user_emotion = next(key for key, value in emotion_map.items() if value == user_emotion)
-            
-            # Write to the file with mapped emotions
             file.write(f"{input_text}, {mapped_user_emotion}\n")
+
+
+#Plotting--------------------------------
+
+conf_matrix = confusion_matrix(y_test, y_pred)
+conf_matrix_normalized = conf_matrix.astype('float') / conf_matrix.sum(axis=1)[:, np.newaxis]
+
+# Plotting the Confusion Matrix
+plt.figure(figsize=(10, 7))
+sns.heatmap(conf_matrix_normalized, annot=True, cmap='Blues', xticklabels=emotion_map.values(), yticklabels=emotion_map.values())
+plt.xlabel('Predicted Labels')
+plt.ylabel('True Labels')
+plt.title('Confusion Matrix')
+plt.show()
+
+
+#Classification_report---------------------------------
+
+y_test_names = y_test.map(emotion_map)
+y_pred_names = pd.Series(y_pred).map(emotion_map)
+
+report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
+
+# Convert the report to a DataFrame for easier plotting
+report_df = pd.DataFrame(report).transpose()
+
+# Filter out support column as it's not needed for this plot
+metrics_df = report_df[['precision', 'recall', 'f1-score']].drop('accuracy')
+
+# Plotting the metrics
+plt.figure(figsize=(12, 8))
+metrics_df.plot(kind='bar', figsize=(12, 8), cmap='viridis')
+plt.title('Precision, Recall, and F1-Score for Each Emotion Class')
+plt.xlabel('Emotion')
+plt.ylabel('Score')
+plt.xticks(rotation=45)
+plt.ylim(0, 1)
+plt.legend(loc='lower right')
+plt.show()
+#----------------------------------------
