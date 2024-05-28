@@ -8,7 +8,9 @@ from sklearn.metrics import classification_report, accuracy_score
 from transformers import BertTokenizer, TFBertForSequenceClassification, logging as transformers_logging
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
+from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.metrics import SparseCategoricalAccuracy
+from sklearn.utils.class_weight import compute_class_weight
 
 # Suppress TensorFlow logs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -17,9 +19,9 @@ os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = 'true'
 # Reduce transformers logging verbosity
 transformers_logging.set_verbosity_error()
 
-# Load the cleaned dataset
+# Load the full dataset
 print("Loading dataset...")
-data = pd.read_csv('../data/emotions_cleaned.csv')
+data = pd.read_csv('/mnt/data/emotions_cleaned.csv')
 print("Dataset loaded.")
 
 # Map numerical labels to emotion names
@@ -41,11 +43,9 @@ print("Splitting data...")
 X_train, X_test, y_train, y_test = train_test_split(texts, labels, test_size=0.2, random_state=42)
 print(f"Data split. Training samples: {len(X_train)}, Test samples: {len(X_test)}")
 
-# Use a larger subset for more meaningful training
-X_train = X_train[:1000]
-y_train = y_train[:1000]
-X_test = X_test[:200]
-y_test = y_test[:200]
+# Calculate class weights
+class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
+class_weights = {i: weight for i, weight in enumerate(class_weights)}
 
 
 # Tokenize the text using BERT tokenizer
@@ -66,17 +66,19 @@ train_dataset, test_dataset, bert_tokenizer = prepare_bert_data(X_train, X_test)
 # Build BERT model
 print("Building BERT model...")
 model = TFBertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=6)
-optimizer = Adam(learning_rate=3e-5)
+optimizer = Adam(learning_rate=1e-5)
 loss_fn = SparseCategoricalCrossentropy(from_logits=True)
 metric = SparseCategoricalAccuracy('accuracy')
 print("BERT model built.")
 
-# Custom training loop
-epochs = 3
+# Custom training loop with early stopping and class weights
+epochs = 5
 batch_size = 16
 
-train_dataset = train_dataset.shuffle(1000).batch(batch_size)
+train_dataset = train_dataset.shuffle(10000).batch(batch_size)
 test_dataset = test_dataset.batch(batch_size)
+
+early_stopping = EarlyStopping(monitor='val_accuracy', patience=2, restore_best_weights=True)
 
 for epoch in range(epochs):
     print(f"\nEpoch {epoch + 1}/{epochs}")
@@ -86,11 +88,13 @@ for epoch in range(epochs):
             outputs = model(batch_inputs, training=True)
             loss = loss_fn(batch_labels, outputs.logits)
             logits = outputs.logits
-        gradients = tape.gradient(loss, model.trainable_variables)
+            # Apply class weights
+            weighted_loss = tf.reduce_mean(loss * tf.gather(class_weights, batch_labels))
+        gradients = tape.gradient(weighted_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
         if step % 10 == 0:
-            print(f"Step {step}: loss = {loss.numpy()}")
+            print(f"Step {step}: loss = {weighted_loss.numpy()}")
 
     # Validation loop
     val_loss = 0
@@ -111,6 +115,10 @@ for epoch in range(epochs):
     val_accuracy = correct_predictions / total_predictions
     print(f"Validation loss: {val_loss}, Validation accuracy: {val_accuracy}")
 
+    if early_stopping.on_epoch_end(epoch, {'val_accuracy': val_accuracy}):
+        print("Early stopping triggered")
+        break
+
 # Evaluate model
 print("Evaluating model...")
 y_pred_bert = []
@@ -119,7 +127,6 @@ for batch_inputs, batch_labels in test_dataset:
     logits = outputs.logits
     predictions = tf.argmax(logits, axis=1).numpy()
     y_pred_bert.extend(predictions)
-
 
 print("BERT Accuracy:", accuracy_score(y_test, y_pred_bert))
 print("BERT Classification Report:\n", classification_report(y_test, y_pred_bert, target_names=label_encoder.classes_))
