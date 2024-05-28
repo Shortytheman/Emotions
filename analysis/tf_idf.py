@@ -6,14 +6,14 @@ from collections import defaultdict
 # Load the dataset
 data = pd.read_csv('../data/emotions_cleaned.csv')
 
-# Ensure no NaNs in 'text' column
-data['text'] = data['text'].fillna('')
+# Ensure no NaNs in 'cleaned_text' column
+data['cleaned_text'] = data['cleaned_text'].fillna('')
 
 # Initialize the TF-IDF Vectorizer with stop words removed
 tfidf_vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
 
-# Fit and transform the text data
-tfidf_sparse_matrix = tfidf_vectorizer.fit_transform(data['text'])
+# Fit and transform the cleaned text data
+tfidf_sparse_matrix = tfidf_vectorizer.fit_transform(data['cleaned_text'])
 
 # Map numerical labels to emotion names
 label_map = {0: 'sadness', 1: 'joy', 2: 'love', 3: 'anger', 4: 'fear', 5: 'surprise'}
