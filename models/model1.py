@@ -55,7 +55,8 @@ class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(
 
 # Train Logistic Regression model with class weights
 logger.info("Training Logistic Regression model with class weights...")
-model = LogisticRegression(solver='liblinear', max_iter=100, C=3, class_weight=dict(zip(np.unique(y_train), class_weights)))
+model = LogisticRegression(solver='liblinear', max_iter=100, C=3,
+                           class_weight=dict(zip(np.unique(y_train), class_weights)))
 model.fit(X_train_tfidf, y_train)
 logger.info("Model trained successfully.")
 
@@ -66,17 +67,20 @@ y_pred = model.predict(X_test_tfidf)
 logger.info(f"Accuracy: {accuracy_score(y_test, y_pred)}")
 logger.info("Classification Report:\n" + classification_report(y_test, y_pred, target_names=list(emotion_map.values())))
 
+
 # Define predict_emotion function
 def predict_emotion(message, model, vectorizer, emotion_map):
-    cleaned_message = clean_text(message)
+    cleaned_message = re.sub(r'\W', ' ', message)
     message_tfidf = vectorizer.transform([cleaned_message])
     prediction = model.predict(message_tfidf)
     predicted_emotion = emotion_map[prediction[0]]
     return predicted_emotion
 
+
 # GUI Setup
 flag = True
 user_responses = []
+
 
 def submit_input(event=None):
     global flag, prediction_text
@@ -89,13 +93,14 @@ def submit_input(event=None):
     predicted_emotion = predict_emotion(prediction_text, model, vectorizer, emotion_map)
     output_text = f"Predicted Emotion: {predicted_emotion}\n"
     output_label.config(text=output_text)
-    
+
     submit_button.config(state=tk.DISABLED)
     prediction_entry.config(state=tk.DISABLED)
-    
+
     emotion_label.grid(row=4, column=0, columnspan=3, pady=10, sticky="ew")
     for button in emotion_buttons:
         button.grid(pady=2, padx=2)
+
 
 def reset_gui():
     output_label.config(text="")
@@ -106,6 +111,7 @@ def reset_gui():
     emotion_label.grid_remove()
     for button in emotion_buttons:
         button.grid_remove()
+
 
 def save_response(emotion):
     global prediction_text
@@ -119,10 +125,12 @@ def save_response(emotion):
     messagebox.showinfo("Saved", f"Your response has been saved: {emotion}")
     reset_gui()
 
+
 def exit_application():
     global flag
     flag = False
     root.quit()
+
 
 total_predictions = len(y_test)
 correct_predictions = (y_test == y_pred).sum()
@@ -134,7 +142,8 @@ root.title("Prediction GUI")
 label_font = ("Arial", 24)
 button_font = ("Arial", 20)
 
-tk.Label(root, text=f"Model prediction accuracy: {accuracy_percentage:.2f}%\n\nPlease enter the prediction message, or \"exit\" to exit the loop.",
+tk.Label(root,
+         text=f"Model prediction accuracy: {accuracy_percentage:.2f}%\n\nPlease enter the prediction message, or \"exit\" to exit the loop.",
          font=label_font).grid(row=0, column=0, columnspan=3, pady=5)
 prediction_entry = tk.Text(root, font=label_font, width=50, height=5)
 prediction_entry.grid(row=1, column=0, columnspan=3, pady=5)
@@ -170,6 +179,7 @@ accuracy_percentage = (correct_predictions / total_predictions) * 100 if total_p
 accuracy_message = f"The bot has been {accuracy_percentage:.2f}% accurate based on your responses."
 messagebox.showinfo("Accuracy", accuracy_message)
 
+
 def is_valid_input(text):
     words = text.split()
     if len(words) < 5 or len(words) > 35:
@@ -178,34 +188,31 @@ def is_valid_input(text):
         return False
     return True
 
+
 with open("../data/newdata.csv", "a") as file:
     for response in user_responses:
         input_text = response['input_text']
         user_emotion = response['user_emotion']
-        
+
         if is_valid_input(input_text):
             mapped_user_emotion = next(key for key, value in emotion_map.items() if value == user_emotion)
             file.write(f"{input_text}, {mapped_user_emotion}\n")
 
-
-#Plotting--------------------------------
+# Plotting --------------------------------
 
 conf_matrix = confusion_matrix(y_test, y_pred)
 conf_matrix_normalized = conf_matrix.astype('float') / conf_matrix.sum(axis=1)[:, np.newaxis]
 
 # Plotting the Confusion Matrix
 plt.figure(figsize=(10, 7))
-sns.heatmap(conf_matrix_normalized, annot=True, cmap='Blues', xticklabels=emotion_map.values(), yticklabels=emotion_map.values())
+sns.heatmap(conf_matrix_normalized, annot=True, cmap='Blues', xticklabels=emotion_map.values(),
+            yticklabels=emotion_map.values())
 plt.xlabel('Predicted Labels')
 plt.ylabel('True Labels')
 plt.title('Confusion Matrix')
 plt.show()
 
-
-#Classification_report---------------------------------
-
-y_test_names = y_test.map(emotion_map)
-y_pred_names = pd.Series(y_pred).map(emotion_map)
+# Classification Report ---------------------------------
 
 report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
 
@@ -225,4 +232,55 @@ plt.xticks(rotation=45)
 plt.ylim(0, 1)
 plt.legend(loc='lower right')
 plt.show()
-#----------------------------------------
+
+# Feature Importance ---------------------------------
+
+# Extract feature names
+feature_names = vectorizer.get_feature_names_out()
+
+# Extract coefficients
+coefficients = model.coef_
+
+# Create a DataFrame to store the coefficients for each class
+coef_df = pd.DataFrame(coefficients.T, index=feature_names, columns=emotion_map.values())
+
+
+# Function to plot top positive and negative features for a given class
+def plot_top_features(class_name, top_n=10):
+    class_coefficients = coef_df[class_name]
+    top_positive_coefficients = class_coefficients.sort_values(ascending=False).head(top_n)
+    top_negative_coefficients = class_coefficients.sort_values(ascending=False).tail(top_n)
+
+    top_coefficients = pd.concat([top_positive_coefficients, top_negative_coefficients])
+
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x=top_coefficients.values, y=top_coefficients.index, palette='viridis')
+    plt.title(f'Top {top_n} Positive and Negative Features for {class_name.capitalize()}')
+    plt.xlabel('Coefficient Value')
+    plt.ylabel('Feature')
+    plt.show()
+
+
+# Plot top features for each class
+for emotion in emotion_map.values():
+    plot_top_features(emotion)
+
+
+# Clean up and save responses ---------------------------------
+def is_valid_input(text):
+    words = text.split()
+    if len(words) < 5 or len(words) > 35:
+        return False
+    if not re.match(r'^[A-Za-z\s,!?\'\']+$', text.strip()):
+        return False
+    return True
+
+
+with open("../data/newdata.csv", "a") as file:
+    for response in user_responses:
+        input_text = response['input_text']
+        user_emotion = response['user_emotion']
+
+        if is_valid_input(input_text):
+            mapped_user_emotion = next(key for key, value in emotion_map.items() if value == user_emotion)
+            file.write(f"{input_text}, {mapped_user_emotion}\n")
