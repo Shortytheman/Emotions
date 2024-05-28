@@ -20,14 +20,6 @@ logger = logging.getLogger(__name__)
 logger.info("Loading dataset...")
 df = pd.read_csv('../data/emotions_cleaned.csv')
 
-# Define clean_text function
-def clean_text(text):
-    text = text.lower()  # Lowercase text
-    text = re.sub(r'\b\w{1,2}\b', '', text)  # Remove short words
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-    text = re.sub(r'\s+', ' ', text).strip()  # Remove extra spaces
-    return text
-
 # Map labels to readable form for visualization
 emotion_map = {
     0: 'sadness',
@@ -182,7 +174,7 @@ def is_valid_input(text):
     words = text.split()
     if len(words) < 5 or len(words) > 35:
         return False
-    if not re.match(r'^[A-Za-z\s,!?\'\']+$', text.strip()):
+    if not re.match(r'^[A-Za-z\s\'\']+$', text.strip()):
         return False
     return True
 
