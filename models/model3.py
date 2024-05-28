@@ -120,5 +120,6 @@ for batch_inputs, batch_labels in test_dataset:
     predictions = tf.argmax(logits, axis=1).numpy()
     y_pred_bert.extend(predictions)
 
+
 print("BERT Accuracy:", accuracy_score(y_test, y_pred_bert))
 print("BERT Classification Report:\n", classification_report(y_test, y_pred_bert, target_names=label_encoder.classes_))
