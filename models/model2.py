@@ -257,3 +257,20 @@ tree.plot_tree(model_for_plot, filled=True, rounded=True, class_names=list(emoti
 plt.title("Decision Tree Visualization")
 plt.show()
 
+report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
+
+# Convert the report to a DataFrame for easier processing
+report_df = pd.DataFrame(report).transpose()
+
+# Drop the 'accuracy' row and the 'support' column
+metrics_df = report_df.drop(['accuracy', 'macro avg', 'weighted avg'], errors='ignore').drop(columns=['support'])
+
+# Calculate the mean of precision, recall, and f1-score
+mean_precision = metrics_df['precision'].mean()
+mean_recall = metrics_df['recall'].mean()
+mean_f1_score = metrics_df['f1-score'].mean()
+
+# Print the results
+print(f"Mean Precision: {mean_precision:.4f}")
+print(f"Mean Recall: {mean_recall:.4f}")
+print(f"Mean F1-Score: {mean_f1_score:.4f}")

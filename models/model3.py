@@ -16,6 +16,23 @@ import matplotlib.pyplot as plt
 from tkinter import messagebox
 import tkinter as tk
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+import logging
+from sklearn.feature_extraction.text import TfidfVectorizer
+import seaborn as sns
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Map labels to readable form for visualization
+emotion_map = {
+    0: 'sadness',
+    1: 'joy',
+    2: 'love',
+    3: 'anger',
+    4: 'fear',
+    5: 'surprise'
+}
 
 # Suppress TensorFlow logs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -83,6 +100,13 @@ def prepare_bert_data(X_train, X_test, max_length=128):
 # Prepare data for BERT model
 train_dataset, test_dataset, bert_tokenizer = prepare_bert_data(X_train, X_test)
 
+# Vectorize text data
+logger.info("Vectorizing text data...")
+vectorizer = TfidfVectorizer(max_features=15000, ngram_range=(1, 2))
+X_train_tfidf = vectorizer.fit_transform(X_train)
+X_test_tfidf = vectorizer.transform(X_test)
+logger.info("Text data vectorized successfully.")
+
 # Build BERT model
 print("Building BERT model...")
 model = TFBertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=6)
@@ -99,13 +123,11 @@ print(f"Training samples: {train_samples}")
 print(f"Batch size: {batch_size}")
 print(f"Steps per epoch: {steps_per_epoch}")
 
-# Custom training loop with early stopping and class weights
+# Custom training loop with class weights
 epochs = 1
 
 train_dataset = train_dataset.shuffle(10000).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
 test_dataset = test_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
-
-early_stopping = EarlyStopping(monitor='val_accuracy', mode='max', patience=2, restore_best_weights=True)
 
 for epoch in range(epochs):
     print(f"\nEpoch {epoch + 1}/{epochs}")
@@ -142,10 +164,6 @@ for epoch in range(epochs):
     val_accuracy = correct_predictions / total_predictions
     print(f"Validation loss: {val_loss}, Validation accuracy: {val_accuracy}")
 
-    early_stopping.model = model  # Ensure the callback has access to the model
-    if early_stopping.on_epoch_end(epoch, {'val_accuracy': val_accuracy}):
-        print("Early stopping triggered")
-        break
 
 # Evaluate model
 print("Evaluating model...")
@@ -225,7 +243,7 @@ def exit_application():
 
 
 total_predictions = len(y_test)
-correct_predictions = (y_test == y_pred).sum()
+correct_predictions = (y_test == y_pred_bert).sum()
 accuracy_percentage = (correct_predictions / total_predictions) * 100
 
 root = tk.Tk()
@@ -292,7 +310,7 @@ with open("../data/newdata.csv", "a") as file:
 
 # Plotting --------------------------------
 
-conf_matrix = confusion_matrix(y_test, y_pred)
+conf_matrix = confusion_matrix(y_test, y_pred_bert)
 conf_matrix_normalized = conf_matrix.astype('float') / conf_matrix.sum(axis=1)[:, np.newaxis]
 
 # Plotting the Confusion Matrix
@@ -306,7 +324,7 @@ plt.show()
 
 # Classification Report ---------------------------------
 
-report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
+report = classification_report(y_test, y_pred_bert, target_names=list(emotion_map.values()), output_dict=True)
 
 # Convert the report to a DataFrame for easier plotting
 report_df = pd.DataFrame(report).transpose()
