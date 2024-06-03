@@ -9,6 +9,12 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 from scipy.sparse import csr_matrix
 import tensorflow as tf
+import tkinter as tk
+from tkinter import messagebox
+from sklearn.metrics import classification_report, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+import re
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -36,9 +42,9 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 # Vectorize text data
 logger.info("Vectorizing text data...")
-vectorizer = TfidfVectorizer(max_features=2000, ngram_range=(1, 2))  # Reduce max_features
-X_train_tfidf = vectorizer.fit_transform(X_train)
-X_test_tfidf = vectorizer.transform(X_test)
+vectorizer = TfidfVectorizer(max_features=2000, ngram_range=(1, 2))
+X_train_tfidf = vectorizer.fit_transform(X_train).toarray()
+X_test_tfidf = vectorizer.transform(X_test).toarray()
 logger.info("Text data vectorized successfully.")
 
 # Convert labels to one-hot encoding
@@ -47,7 +53,7 @@ y_test_enc = to_categorical(y_test)
 
 # Define the model
 model = Sequential()
-model.add(Dense(512, input_shape=(2000,), activation='relu'))  # Adjust input_shape to match max_features
+model.add(Dense(512, input_shape=(2000,), activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(256, activation='relu'))
 model.add(Dropout(0.5))
@@ -71,12 +77,198 @@ logger.info("Model trained successfully.")
 
 # Evaluate the model
 logger.info("Evaluating the model...")
-loss, accuracy = model.evaluate(X_test_tfidf, y_test_enc, verbose=1)
+loss, accuracy = model.evaluate(X_test_tfidf, y_test_enc, verbose=0)
 logger.info(f"Accuracy: {accuracy}")
 
 # Get classification report
 y_pred_enc = model.predict(X_test_tfidf)
 y_pred = np.argmax(y_pred_enc, axis=1)
 
-from sklearn.metrics import classification_report
 logger.info("Classification Report:\n" + classification_report(y_test, y_pred, target_names=list(emotion_map.values())))
+
+# Define predict_emotion function
+def predict_emotion(message, model, vectorizer, emotion_map):
+    cleaned_message = re.sub(r'\W', ' ', message)
+    message_tfidf = vectorizer.transform([cleaned_message]).toarray()
+    prediction = model.predict(message_tfidf)
+    predicted_emotion = emotion_map[np.argmax(prediction)]
+    return predicted_emotion
+
+# GUI Setup
+flag = True
+user_responses = []
+
+def submit_input(event=None):
+    global flag, prediction_text
+    prediction_text = prediction_entry.get("1.0", tk.END).strip()
+    if prediction_text.lower() == "exit":
+        flag = False
+        root.quit()
+        return
+
+    predicted_emotion = predict_emotion(prediction_text, model, vectorizer, emotion_map)
+    output_text = f"Predicted Emotion: {predicted_emotion}\n"
+    output_label.config(text=output_text)
+
+    submit_button.config(state=tk.DISABLED)
+    prediction_entry.config(state=tk.DISABLED)
+
+    emotion_label.grid(row=4, column=0, columnspan=3, pady=10, sticky="ew")
+    for button in emotion_buttons:
+        button.grid(pady=2, padx=2)
+
+def reset_gui():
+    output_label.config(text="")
+    prediction_entry.config(state=tk.NORMAL)
+    prediction_entry.delete("1.0", tk.END)
+    prediction_entry.focus()
+    submit_button.config(state=tk.NORMAL)
+    emotion_label.grid_remove()
+    for button in emotion_buttons:
+        button.grid_remove()
+
+def save_response(emotion):
+    global prediction_text
+    user_response = {
+        "input_text": prediction_text,
+        "predicted_emotion": predict_emotion(prediction_text, model, vectorizer, emotion_map),
+        "user_emotion": emotion
+    }
+    user_responses.append(user_response)
+    print(f"Response saved: {user_response}")
+    messagebox.showinfo("Saved", f"Your response has been saved: {emotion}")
+    reset_gui()
+
+def exit_application():
+    global flag
+    flag = False
+    root.quit()
+
+total_predictions = len(y_test)
+correct_predictions = (y_test == y_pred).sum()
+accuracy_percentage = (correct_predictions / total_predictions) * 100
+
+root = tk.Tk()
+root.title("Prediction GUI")
+
+label_font = ("Arial", 24)
+button_font = ("Arial", 20)
+
+tk.Label(root,
+         text=f"Model prediction accuracy: {accuracy_percentage:.2f}%\n\nPlease enter the prediction message, or \"exit\" to exit the loop.",
+         font=label_font).grid(row=0, column=0, columnspan=3, pady=5)
+prediction_entry = tk.Text(root, font=label_font, width=50, height=5)
+prediction_entry.grid(row=1, column=0, columnspan=3, pady=5)
+
+submit_button = tk.Button(root, text="Submit", command=submit_input, font=button_font)
+submit_button.grid(row=2, column=0, padx=2, pady=5, sticky="ew")
+
+reset_button = tk.Button(root, text="Reset", command=reset_gui, font=button_font)
+reset_button.grid(row=2, column=1, padx=2, pady=5, sticky="ew")
+
+exit_button = tk.Button(root, text="Exit", command=exit_application, font=button_font)
+exit_button.grid(row=2, column=2, padx=2, pady=5, sticky="ew")
+
+output_label = tk.Label(root, text="", fg="blue", font=label_font)
+output_label.grid(row=3, column=0, columnspan=3, pady=10)
+
+emotion_label = tk.Label(root, text="Choose the correct emotion based on your input:", font=label_font)
+
+emotions = ['sadness', 'joy', 'love', 'anger', 'fear', 'surprise']
+emotion_buttons = []
+for i, emotion in enumerate(emotions):
+    button = tk.Button(root, text=emotion, command=lambda e=emotion: save_response(e), font=button_font)
+    emotion_buttons.append(button)
+    button.grid(row=5 + i // 3, column=i % 3, pady=2, padx=2)
+    button.grid_remove()
+
+root.mainloop()
+
+total_predictions = len(user_responses)
+correct_predictions = sum(1 for response in user_responses if response['predicted_emotion'] == response['user_emotion'])
+accuracy_percentage = (correct_predictions / total_predictions) * 100 if total_predictions > 0 else 0
+
+accuracy_message = f"The bot has been {accuracy_percentage:.2f}% accurate based on your responses."
+messagebox.showinfo("Accuracy", accuracy_message)
+
+def is_valid_input(text):
+    words = text.split()
+    if len(words) < 5 or len(words) > 35:
+        return False
+    if not re.match(r'^[A-Za-z\s\'\']+$', text.strip()):
+        return False
+    return True
+
+with open("../data/newdata.csv", "a") as file:
+    for response in user_responses:
+        input_text = response['input_text']
+        user_emotion = response['user_emotion']
+
+        if is_valid_input(input_text):
+            mapped_user_emotion = next(key for key, value in emotion_map.items() if value == user_emotion)
+            file.write(f"{input_text}, {mapped_user_emotion}\n")
+
+# Plotting --------------------------------
+
+conf_matrix = confusion_matrix(y_test, y_pred)
+conf_matrix_normalized = conf_matrix.astype('float') / conf_matrix.sum(axis=1)[:, np.newaxis]
+
+# Plotting the Confusion Matrix
+plt.figure(figsize=(10, 7))
+sns.heatmap(conf_matrix_normalized, annot=True, cmap='Blues', xticklabels=emotion_map.values(),
+            yticklabels=emotion_map.values())
+plt.xlabel('Predicted Labels')
+plt.ylabel('True Labels')
+plt.title('Confusion Matrix')
+plt.show()
+
+# Classification Report ---------------------------------
+
+report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
+
+# Convert the report to a DataFrame for easier plotting
+report_df = pd.DataFrame(report).transpose()
+
+# Filter out support column as it's not needed for this plot
+metrics_df = report_df[['precision', 'recall', 'f1-score']].drop('accuracy')
+
+# Plotting the metrics
+plt.figure(figsize=(12, 8))
+metrics_df.plot(kind='bar', figsize=(12, 8), cmap='viridis')
+plt.title('Precision, Recall, and F1-Score for Each Emotion Class')
+plt.xlabel('Emotion')
+plt.ylabel('Score')
+plt.xticks(rotation=45)
+plt.ylim(0, 1)
+plt.legend(loc='lower right')
+plt.show()
+
+# Feature Importance ---------------------------------
+
+# Extract feature names
+feature_names = vectorizer.get_feature_names_out()
+
+# Extract coefficients
+coefficients = model.coef_
+
+# Create a DataFrame to store the coefficients for each class
+coef_df = pd.DataFrame(coefficients.T, index=feature_names, columns=emotion_map.values())
+
+# Function to plot top positive and negative features for a given class
+def plot_top_features(class_name, top_n=10):
+    class_coefficients = coef_df[class_name]
+    top_positive_coefficients = class_coefficients.sort_values(ascending=False).head(top_n)
+    top_negative_coefficients = class_coefficients.sort_values(ascending=False).tail(top_n)
+
+    top_coefficients = pd.concat([top_positive_coefficients, top_negative_coefficients])
+
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x=top_coefficients.values, y=top_coefficients.index, palette='viridis')
+    plt.title(f'Top {top_n} Positive and Negative Features for {class_name.capitalize()}')
+    plt.xlabel('Coefficient Value')
+    plt.ylabel('Feature')
+    plt.show()
+
+# Plot top features for each class
+for emotion in emotion_map.values():
+    plot_top_features(emotion)
