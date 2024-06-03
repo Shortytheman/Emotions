@@ -249,29 +249,29 @@ plt.show()
 feature_names = vectorizer.get_feature_names_out()
 
 # Extract coefficients
-coefficients = model.coef_
+#coefficients = model.coef_
 
 # Create a DataFrame to store the coefficients for each class
-coef_df = pd.DataFrame(coefficients.T, index=feature_names, columns=emotion_map.values())
+#coef_df = pd.DataFrame(coefficients.T, index=feature_names, columns=emotion_map.values())
 
 # Function to plot top positive and negative features for a given class
-def plot_top_features(class_name, top_n=10):
-    class_coefficients = coef_df[class_name]
-    top_positive_coefficients = class_coefficients.sort_values(ascending=False).head(top_n)
-    top_negative_coefficients = class_coefficients.sort_values(ascending=False).tail(top_n)
-
-    top_coefficients = pd.concat([top_positive_coefficients, top_negative_coefficients])
-
-    plt.figure(figsize=(10, 6))
-    sns.barplot(x=top_coefficients.values, y=top_coefficients.index, palette='viridis')
-    plt.title(f'Top {top_n} Positive and Negative Features for {class_name.capitalize()}')
-    plt.xlabel('Coefficient Value')
-    plt.ylabel('Feature')
-    plt.show()
-
-# Plot top features for each class
-for emotion in emotion_map.values():
-    plot_top_features(emotion)
+# def plot_top_features(class_name, top_n=10):
+#     class_coefficients = coef_df[class_name]
+#     top_positive_coefficients = class_coefficients.sort_values(ascending=False).head(top_n)
+#     top_negative_coefficients = class_coefficients.sort_values(ascending=False).tail(top_n)
+#
+#     top_coefficients = pd.concat([top_positive_coefficients, top_negative_coefficients])
+#
+#     plt.figure(figsize=(10, 6))
+#     sns.barplot(x=top_coefficients.values, y=top_coefficients.index, palette='viridis')
+#     plt.title(f'Top {top_n} Positive and Negative Features for {class_name.capitalize()}')
+#     plt.xlabel('Coefficient Value')
+#     plt.ylabel('Feature')
+#     plt.show()
+#
+# # Plot top features for each class
+# for emotion in emotion_map.values():
+#     plot_top_features(emotion)
 
 mean_precision = metrics_df['precision'].mean()
 mean_recall = metrics_df['recall'].mean()
