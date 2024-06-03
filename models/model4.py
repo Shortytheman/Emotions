@@ -272,3 +272,11 @@ def plot_top_features(class_name, top_n=10):
 # Plot top features for each class
 for emotion in emotion_map.values():
     plot_top_features(emotion)
+
+mean_precision = metrics_df['precision'].mean()
+mean_recall = metrics_df['recall'].mean()
+mean_f1_score = metrics_df['f1-score'].mean()
+
+print(f"Mean Precision: {mean_precision:.4f}")
+print(f"Mean Recall: {mean_recall:.4f}")
+print(f"Mean F1-Score: {mean_f1_score:.4f}")
