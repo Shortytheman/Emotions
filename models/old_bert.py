@@ -8,7 +8,6 @@ from sklearn.metrics import classification_report, accuracy_score
 from transformers import BertTokenizer, TFBertForSequenceClassification, logging as transformers_logging
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
-from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.metrics import SparseCategoricalAccuracy
 from sklearn.utils.class_weight import compute_class_weight
 
@@ -47,7 +46,6 @@ print(f"Data split. Training samples: {len(X_train)}, Test samples: {len(X_test)
 class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
 class_weights = {i: weight for i, weight in enumerate(class_weights)}
 
-
 # Tokenize the text using BERT tokenizer
 def prepare_bert_data(X_train, X_test, max_length=128):
     print("Tokenizing data...")
@@ -58,7 +56,6 @@ def prepare_bert_data(X_train, X_test, max_length=128):
     test_dataset = tf.data.Dataset.from_tensor_slices((dict(test_encodings), y_test))
     print("Data tokenized.")
     return train_dataset, test_dataset, tokenizer
-
 
 # Prepare data for BERT model
 train_dataset, test_dataset, bert_tokenizer = prepare_bert_data(X_train, X_test)
@@ -71,14 +68,12 @@ loss_fn = SparseCategoricalCrossentropy(from_logits=True)
 metric = SparseCategoricalAccuracy('accuracy')
 print("BERT model built.")
 
-# Custom training loop with early stopping and class weights
-epochs = 5
+# Custom training loop with class weights
+epochs = 1
 batch_size = 16
 
 train_dataset = train_dataset.shuffle(10000).batch(batch_size)
 test_dataset = test_dataset.batch(batch_size)
-
-early_stopping = EarlyStopping(monitor='val_accuracy', patience=2, restore_best_weights=True)
 
 for epoch in range(epochs):
     print(f"\nEpoch {epoch + 1}/{epochs}")
@@ -114,10 +109,6 @@ for epoch in range(epochs):
     val_loss /= val_steps
     val_accuracy = correct_predictions / total_predictions
     print(f"Validation loss: {val_loss}, Validation accuracy: {val_accuracy}")
-
-    if early_stopping.on_epoch_end(epoch, {'val_accuracy': val_accuracy}):
-        print("Early stopping triggered")
-        break
 
 # Evaluate model
 print("Evaluating model...")
