@@ -1,4 +1,3 @@
-# Imports-------------------------------------------
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,24 +5,24 @@ import seaborn as sns
 import re
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 import logging
 import tkinter as tk
 from tkinter import messagebox
 from sklearn.utils.class_weight import compute_class_weight
 import time
-from sklearn.ensemble import RandomForestClassifier
+from sklearn import tree
 
-#-------------------------------------------
+# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Dataset preparations-----------------------
+# Load and prepare dataset
 logger.info("Loading dataset...")
-df = pd.read_csv('data/emotions.csv')
-df.drop(columns='Unnamed: 0', inplace=True)
+df = pd.read_csv('../data/emotions_cleaned.csv')
 
+# Define clean_text function
 def clean_text(text):
     text = text.lower()  # Lowercase text
     text = re.sub(r'\b\w{1,2}\b', '', text)  # Remove short words
@@ -31,10 +30,7 @@ def clean_text(text):
     text = re.sub(r'\s+', ' ', text).strip()  # Remove extra spaces
     return text
 
-logger.info("Cleaning text data...")
-df['cleaned_text'] = df['text'].apply(clean_text)
-
-# Mapping labels to readable form for visualization
+# Map labels to readable form for visualization
 emotion_map = {
     0: 'sadness',
     1: 'joy',
@@ -48,19 +44,26 @@ df['label_name'] = df['label'].map(emotion_map)
 # Converting labels back to numeric for training
 df['label'] = df['label_name'].map({v: k for k, v in emotion_map.items()})
 
+# Check for NaN values and handle them
+df['cleaned_text'] = df['cleaned_text'].fillna('')
+
 logger.info("Splitting data into train and test sets...")
 X = df['cleaned_text']
 y = df['label']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Vectorizing the text data
+# Vectorize text data
 logger.info("Vectorizing text data...")
-vectorizer = TfidfVectorizer(max_features=5000) # with ngram_range=(1, 2) accuracy is 82.95% (without class weights) and way longer training time. and 82.87% with class weights and 270s training time
+vectorizer = TfidfVectorizer(max_features=15000, ngram_range=(1, 2))
 X_train_tfidf = vectorizer.fit_transform(X_train)
 X_test_tfidf = vectorizer.transform(X_test)
 logger.info("Text data vectorized successfully.")
 
+# Compute class weights
+class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
+
+# Train Decision Tree model with or without class weights
 logger.info("Training Decision Tree model...")
 start_time = time.time()
 # Compute class weights for imbalanced dataset --- 83.81% accuracy
@@ -69,19 +72,25 @@ start_time = time.time()
 # model.fit(X_train_tfidf, y_train) 
 
 # Train model without class weights --- 83.86% accuracy (longer training time than with class weights)
-model = DecisionTreeClassifier(random_state=42) # Increase max_depth for higher accuracy and longer training time
+# Train model without max_depth for better accuracy
+model = DecisionTreeClassifier(random_state=42)
 model.fit(X_train_tfidf, y_train)
 
+# Train a new model with max_depth=10 for visualization
+model_for_plot = DecisionTreeClassifier(max_depth=5, random_state=42)
+model_for_plot.fit(X_train_tfidf, y_train)
 
 logger.info("Model trained successfully.")
 logger.info(f"Training time: {time.time() - start_time} seconds")
 
+# Evaluate the model
 logger.info("Evaluating the model...")
 y_pred = model.predict(X_test_tfidf)
 
 logger.info(f"Accuracy: {accuracy_score(y_test, y_pred)}")
 logger.info("Classification Report:\n" + classification_report(y_test, y_pred, target_names=list(emotion_map.values())))
 
+# Define predict_emotion function
 def predict_emotion(message, model, vectorizer, emotion_map):
     cleaned_message = clean_text(message)
     message_tfidf = vectorizer.transform([cleaned_message])
@@ -89,67 +98,162 @@ def predict_emotion(message, model, vectorizer, emotion_map):
     predicted_emotion = emotion_map[prediction[0]]
     return predicted_emotion
 
-# GUI SETUP-----------------------------------------
-
+# GUI Setup
 flag = True
+user_responses = []
 
 def submit_input(event=None):
-    global flag
-    prediction_text = prediction_entry.get()
+    global flag, prediction_text
+    prediction_text = prediction_entry.get("1.0", tk.END).strip()
     if prediction_text.lower() == "exit":
         flag = False
         root.quit()
         return
-    
+
     predicted_emotion = predict_emotion(prediction_text, model, vectorizer, emotion_map)
     output_text = f"Predicted Emotion: {predicted_emotion}\n"
     output_label.config(text=output_text)
-    # Clear the entry field
-    prediction_entry.delete(0, tk.END)
+    
+    submit_button.config(state=tk.DISABLED)
+    prediction_entry.config(state=tk.DISABLED)
+    
+    emotion_label.grid(row=4, column=0, columnspan=3, pady=10, sticky="ew")
+    for button in emotion_buttons:
+        button.grid(pady=2, padx=2)
 
 def reset_gui():
     output_label.config(text="")
-    prediction_entry.delete(0, tk.END)
+    prediction_entry.config(state=tk.NORMAL)
+    prediction_entry.delete("1.0", tk.END)
     prediction_entry.focus()
+    submit_button.config(state=tk.NORMAL)
+    emotion_label.grid_remove()
+    for button in emotion_buttons:
+        button.grid_remove()
+
+def save_response(emotion):
+    global prediction_text
+    user_response = {
+        "input_text": prediction_text,
+        "predicted_emotion": predict_emotion(prediction_text, model, vectorizer, emotion_map),
+        "user_emotion": emotion
+    }
+    user_responses.append(user_response)
+    print(f"Response saved: {user_response}")
+    messagebox.showinfo("Saved", f"Your response has been saved: {emotion}")
+    reset_gui()
+
+def exit_application():
+    global flag
+    flag = False
+    root.quit()
 
 total_predictions = len(y_test)
 correct_predictions = (y_test == y_pred).sum()
 accuracy_percentage = (correct_predictions / total_predictions) * 100
 
-while flag:
-    root = tk.Tk()
-    root.title("Prediction GUI")
+root = tk.Tk()
+root.title("Prediction GUI")
 
-    # Set font size for labels and buttons
-    label_font = ("Arial", 24)
-    button_font = ("Arial", 20)
+label_font = ("Arial", 24)
+button_font = ("Arial", 20)
 
-    tk.Label(root, text=f"Model prediction accuracy: {accuracy_percentage:.2f}%\n\nPlease enter the prediction message, or \"exit\" to exit the loop.",
-             font=label_font).pack(pady=5)
-    prediction_entry = tk.Entry(root, font=label_font)
-    prediction_entry.pack(pady=5)
+tk.Label(root, text=f"Model prediction accuracy: {accuracy_percentage:.2f}%\n\nPlease enter the prediction message, or \"exit\" to exit the loop.",
+         font=label_font).grid(row=0, column=0, columnspan=3, pady=5)
+prediction_entry = tk.Text(root, font=label_font, width=50, height=5)
+prediction_entry.grid(row=1, column=0, columnspan=3, pady=5)
 
-    submit_button = tk.Button(root, text="Submit", command=submit_input, font=button_font)
-    submit_button.pack(pady=10)
+submit_button = tk.Button(root, text="Submit", command=submit_input, font=button_font)
+submit_button.grid(row=2, column=0, padx=2, pady=5, sticky="ew")
 
-    reset_button = tk.Button(root, text="Reset", command=reset_gui, font=button_font)
-    reset_button.pack(pady=10)
+reset_button = tk.Button(root, text="Reset", command=reset_gui, font=button_font)
+reset_button.grid(row=2, column=1, padx=2, pady=5, sticky="ew")
 
-    output_label = tk.Label(root, text="", fg="blue", font=label_font)
-    output_label.pack(pady=10)
+exit_button = tk.Button(root, text="Exit", command=exit_application, font=button_font)
+exit_button.grid(row=2, column=2, padx=2, pady=5, sticky="ew")
 
-    # Bind the <Return> key to submit_input function
-    root.bind("<Return>", submit_input)
+output_label = tk.Label(root, text="", fg="blue", font=label_font)
+output_label.grid(row=3, column=0, columnspan=3, pady=10)
 
-    root.mainloop()
+emotion_label = tk.Label(root, text="Choose the correct emotion based on your input:", font=label_font)
 
-    if not flag:
-        break  # Exit the loop if the user exits
+emotions = ['sadness', 'joy', 'love', 'anger', 'fear', 'surprise']
+emotion_buttons = []
+for i, emotion in enumerate(emotions):
+    button = tk.Button(root, text=emotion, command=lambda e=emotion: save_response(e), font=button_font)
+    emotion_buttons.append(button)
+    button.grid(row=5 + i // 3, column=i % 3, pady=2, padx=2)
+    button.grid_remove()
 
-    # Display accuracy for the last prediction
-    if y_test is not None:
-        last_prediction_text = prediction_text
-        last_predicted_emotion = predicted_emotion
-        last_actual_emotion = emotion_map[y_test[-1]]
-        last_prediction_accuracy = "Correct" if last_predicted_emotion == last_actual_emotion else "Incorrect"
-        logger.info(f"Input: {last_prediction_text}, Predicted Emotion: {last_predicted_emotion}, Actual Emotion: {last_actual_emotion}, Accuracy: {last_prediction_accuracy}")
+root.mainloop()
+
+total_predictions = len(user_responses)
+correct_predictions = sum(1 for response in user_responses if response['predicted_emotion'] == response['user_emotion'])
+accuracy_percentage = (correct_predictions / total_predictions) * 100 if total_predictions > 0 else 0
+
+accuracy_message = f"The bot has been {accuracy_percentage:.2f}% accurate based on your responses."
+messagebox.showinfo("Accuracy", accuracy_message)
+
+def is_valid_input(text):
+    words = text.split()
+    if len(words) < 5 or len(words) > 35:
+        return False
+    if not re.match(r'^[A-Za-z\s,!?\'\']+$', text.strip()):
+        return False
+    return True
+
+with open("../data/newdata.csv", "a") as file:
+    for response in user_responses:
+        input_text = response['input_text']
+        user_emotion = response['user_emotion']
+        
+        if is_valid_input(input_text):
+            mapped_user_emotion = next(key for key, value in emotion_map.items() if value == user_emotion)
+            file.write(f"{input_text}, {mapped_user_emotion}\n")
+
+
+#Plotting--------------------------------
+
+conf_matrix = confusion_matrix(y_test, y_pred)
+conf_matrix_normalized = conf_matrix.astype('float') / conf_matrix.sum(axis=1)[:, np.newaxis]
+
+# Plotting the Confusion Matrix
+plt.figure(figsize=(10, 7))
+sns.heatmap(conf_matrix_normalized, annot=True, cmap='Blues', xticklabels=emotion_map.values(), yticklabels=emotion_map.values())
+plt.xlabel('Predicted Labels')
+plt.ylabel('True Labels')
+plt.title('Confusion Matrix')
+plt.show()
+
+
+#Classification_report---------------------------------
+
+y_test_names = y_test.map(emotion_map)
+y_pred_names = pd.Series(y_pred).map(emotion_map)
+
+report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
+
+# Convert the report to a DataFrame for easier plotting
+report_df = pd.DataFrame(report).transpose()
+
+# Filter out support column as it's not needed for this plot
+metrics_df = report_df[['precision', 'recall', 'f1-score']].drop('accuracy')
+
+# Plotting the metrics
+plt.figure(figsize=(12, 8))
+metrics_df.plot(kind='bar', figsize=(12, 8), cmap='viridis')
+plt.title('Precision, Recall, and F1-Score for Each Emotion Class')
+plt.xlabel('Emotion')
+plt.ylabel('Score')
+plt.xticks(rotation=45)
+plt.ylim(0, 1)
+plt.legend(loc='lower right')
+plt.show()
+#----------------------------------------
+
+# Plot the decision tree
+plt.figure(figsize=(10, 10))  # Set the figure size (it can be changed)
+tree.plot_tree(model_for_plot, filled=True, rounded=True, class_names=list(emotion_map.values()), feature_names=vectorizer.get_feature_names_out())
+plt.title("Decision Tree Visualization")
+plt.show()
+
