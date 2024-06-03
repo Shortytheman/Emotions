@@ -111,7 +111,7 @@ epochs = 5
 train_dataset = train_dataset.shuffle(10000).batch(batch_size)
 test_dataset = test_dataset.batch(batch_size)
 
-early_stopping = EarlyStopping(monitor='val_accuracy', patience=2, restore_best_weights=True)
+early_stopping = EarlyStopping(monitor='val_accuracy', mode='max', patience=2, restore_best_weights=True)
 
 for epoch in range(epochs):
     print(f"\nEpoch {epoch + 1}/{epochs}")
