@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import classification_report, accuracy_score
+import re
 from transformers import BertTokenizer, TFBertForSequenceClassification, logging as transformers_logging
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
@@ -14,6 +14,8 @@ from sklearn.utils.class_weight import compute_class_weight
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from tkinter import messagebox
+import tkinter as tk
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 
 # Suppress TensorFlow logs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -55,36 +57,28 @@ print(f"Data split. Training samples: {len(X_train)}, Test samples: {len(X_test)
 
 # Calculate class weights
 class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
-class_weights = tf.constant(class_weights, dtype=tf.float32)
-
+class_weights = {i: class_weights[i] for i in range(len(class_weights))}
 
 # Tokenize the text using BERT tokenizer with progress bar
 def prepare_bert_data(X_train, X_test, max_length=128):
     print("Tokenizing data...")
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-    # Tokenize training data with progress bar
-    train_encodings = []
-    for text in tqdm(X_train, desc="Tokenizing training data"):
-        encodings = tokenizer(text, truncation=True, padding='max_length', max_length=max_length)
-        train_encodings.append(encodings)
+    train_encodings = tokenizer(list(X_train), truncation=True, padding=True, max_length=max_length)
+    test_encodings = tokenizer(list(X_test), truncation=True, padding=True, max_length=max_length)
 
-    # Tokenize test data with progress bar
-    test_encodings = []
-    for text in tqdm(X_test, desc="Tokenizing test data"):
-        encodings = tokenizer(text, truncation=True, padding='max_length', max_length=max_length)
-        test_encodings.append(encodings)
+    train_dataset = tf.data.Dataset.from_tensor_slices((
+        dict(train_encodings),
+        y_train
+    ))
 
-    # Convert lists of encodings to dictionaries
-    train_encodings = {key: np.array([enc[key] for enc in train_encodings]) for key in train_encodings[0].keys()}
-    test_encodings = {key: np.array([enc[key] for enc in test_encodings]) for key in test_encodings[0].keys()}
-
-    train_dataset = tf.data.Dataset.from_tensor_slices((train_encodings, y_train))
-    test_dataset = tf.data.Dataset.from_tensor_slices((test_encodings, y_test))
+    test_dataset = tf.data.Dataset.from_tensor_slices((
+        dict(test_encodings),
+        y_test
+    ))
 
     print("Data tokenized.")
     return train_dataset, test_dataset, tokenizer
-
 
 # Prepare data for BERT model
 train_dataset, test_dataset, bert_tokenizer = prepare_bert_data(X_train, X_test)
@@ -106,10 +100,10 @@ print(f"Batch size: {batch_size}")
 print(f"Steps per epoch: {steps_per_epoch}")
 
 # Custom training loop with early stopping and class weights
-epochs = 5
+epochs = 1
 
-train_dataset = train_dataset.shuffle(10000).batch(batch_size)
-test_dataset = test_dataset.batch(batch_size)
+train_dataset = train_dataset.shuffle(10000).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
+test_dataset = test_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
 
 early_stopping = EarlyStopping(monitor='val_accuracy', mode='max', patience=2, restore_best_weights=True)
 
@@ -122,7 +116,7 @@ for epoch in range(epochs):
             loss = loss_fn(batch_labels, outputs.logits)
             logits = outputs.logits
             # Apply class weights
-            weights = tf.gather(class_weights, batch_labels)
+            weights = tf.gather(tf.constant(list(class_weights.values()), dtype=tf.float32), batch_labels)
             weighted_loss = tf.reduce_mean(loss * weights)
         gradients = tape.gradient(weighted_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -141,14 +135,14 @@ for epoch in range(epochs):
         val_loss += loss.numpy()
         val_steps += 1
         predictions = tf.argmax(outputs.logits, axis=1, output_type=tf.int64)  # Ensure predictions are int64
-        correct_predictions += tf.reduce_sum(
-            tf.cast(predictions == tf.cast(batch_labels, tf.int64), tf.float32)).numpy()
+        correct_predictions += tf.reduce_sum(tf.cast(predictions == tf.cast(batch_labels, tf.int64), tf.float32)).numpy()
         total_predictions += batch_labels.shape[0]
 
     val_loss /= val_steps
     val_accuracy = correct_predictions / total_predictions
     print(f"Validation loss: {val_loss}, Validation accuracy: {val_accuracy}")
 
+    early_stopping.model = model  # Ensure the callback has access to the model
     if early_stopping.on_epoch_end(epoch, {'val_accuracy': val_accuracy}):
         print("Early stopping triggered")
         break
