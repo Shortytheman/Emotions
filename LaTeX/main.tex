@@ -1,0 +1,52 @@
+% Document setup
+\documentclass[a4paper,10pt]{article}
+\input{templates/import}
+\geometry{left=40pt,right=40pt, bottom=20mm, top=20mm}
+\addbibresource{./refs.bib}
+\sloppy
+\linespread{1.2}
+\setlength{\columnsep}{20pt} % Adjust the value as needed
+
+
+% Header and footer
+\def\class{Applied Artificial Intelligence}
+\def\school{Copenhagen School of Design and Technology}
+\pagestyle{fancy}
+\fancyhf{}
+\setlength{\headheight}{14pt}
+\rhead{\class}
+\lhead{\school}
+\rfoot{Page \thepage \hspace{1pt} of \pageref{LastPage}}
+
+\begin{document}
+% Front page
+\input{templates/frontpage}
+
+
+
+
+%---------------------------------------------------------------------------------
+
+% Start sections
+\twocolumn
+\newpage
+\setcounter{page}{1}
+\input{sections/introduction}
+\input{sections/analysis}
+\input{sections/models}
+\input{sections/findings}
+\input{sections/conclusion}
+% End sections
+
+
+%---------------------------------------------------------------------------------
+
+
+
+% Bibliography
+\onecolumn
+\newpage
+\pagestyle{empty}
+\setcounter{page}{5}
+\printbibliography
+\end{document}

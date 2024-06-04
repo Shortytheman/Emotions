@@ -1,0 +1,37 @@
+\section{Analysis\label{sec:Analysis}}
+
+\subsection{Data analysis \& Data cleaning}
+
+The data cleaning process involved several key steps to ensure the text data was clean and standardized. Initially, the original dataset was read from a CSV file using Pandas, and an unnecessary column, 'Unnamed: 0', was dropped to streamline the data. A custom function,' clean\_text', was then defined to clean the text data by converting all text to lowercase, removing short words that were 1-2 letters long, stripping out punctuation, and eliminating extra spaces and whitespace. This function was applied to each entry in the 'text' column, and the cleaned text was stored in a new column called 'cleaned\_text'. Finally, the cleaned dataframe was saved to a new CSV file, ensuring that the cleaned data was preserved for further analysis or use. This comprehensive cleaning process ensured that the text data was consistent and ready for subsequent analysis or machine learning tasks.
+
+\subsection{Frequency Distrubution Analysis}
+
+The objective of this analysis was to evaluate the distribution of labeled emotions in our dataset to assess whether emotions can be discernibly represented in tweet text, thus forming the feasibility of predictive modeling.
+
+We have used libraries like pandas and matplotlib in python for plotting and conducted a frequency analysis to understand which emotions are most and least prevalent. The analysis reveals that joy and love are the most common emotions indicating a positive sentiment bias. “Surprise” has a significantly lower frequency which may present challenges in model training.
+
+The dominance of positive emotions such as joy and love could suggest either a natural prevalence of these emotions in social media discourse or a dataset bias towards positive annotations. The infrequency of surprise highlights potential difficulties in achieving high accuracy for this emotion due to fewer training examples.
+
+
+\subsection{TF-IDF Analysis}
+
+The objective of this analysis aims to pinpoint the terms that distinctively represent each emotion within tweets, following data cleaning and the refinement of TF-IDF term selection to exclude overly common words.
+After cleaning the data the TF-IDF Vectorizer was applied to identify terms with high TF-IDF scores that uniquely describe each emotion. The analysis intentionally excluded generic terms such as "really" and "little" to focus on more descriptive and emotion-specific words.
+
+The refined TF-IDF scores reveal a distinct vocabulary that characterizes each emotion~effectively:
+
+\begin{itemize}
+  \item Anger: Dominated by words like "angry," "annoyed," and "frustrated," highlighting direct expressions of irritation and discontent.
+  \item Fear: Terms such as "scared," "anxious," "nervous," and "afraid" convey feelings of anxiety and apprehension vividly.
+  \item Joy: Features words like "time," "pretty," "love," and "want," reflecting positive sentiments and affection.
+  \item Love: Rich with expressions such as "loved," "sympathetic," "hot," "loving," and "longing," emphasizing deep emotional attachments and warmth.
+  \item Sadness: Characterized by "know," "time," "ive," "bit," and "think," which suggest introspection and melancholic contemplation.
+  \item Surprise: Highlighted by "impressed," "amazed," "shocked," "curious," and "surprised," all of which underscore the suddenness and unexpected nature of events causing surprise.
+\end{itemize}
+
+
+These terms not only reflect the core sentiment associated with each emotion but also show a clear separation in the language used to express different feelings. \autocite{tf-idf-analysis}
+
+
+
+

@@ -1,0 +1,51 @@
+%v Titel
+\def\title{Emotions}
+
+% Undertitel
+\def\subtitle{Applied Artificial Intelligence}
+
+% Dato
+\def\date{June 4, 2024}
+
+% Author
+\def\author{
+    \textbf{Group: Neon}
+    \\
+    Emil Breilev Vinther - June 29, 1996 - emil11m8@stud.kea.dk
+    \\
+    Magnus Büchner Dalkvist - June 6, 2000 - magn552n@stud.kea.dk
+    \\
+    Naomi Marie Rasmussen - September 12, 1998 - naom0649@stud.kea.dk
+    \\
+    Niklas Faurholt - August 11, 1989 - nikl5238@stud.kea.dk
+}
+
+\def\abstract{
+\LARGE\textbf{Abstract}\vskip2mm
+\large
+This paper explores the prediction and generation of emotions in tweets using machine learning models. The analysis addresses the key research question - Can emotions be predicted from a random tweet? Using the "emotions.csv" dataset\autocite{emotions-dataset}, we used Frequency Distribution Analysis and TF-IDF Analysis to understand the distribution and significance of terms across different emotions.
+
+Our findings reveal a positive sentiment bias, with 'joy' and 'love' being the most prevalent emotions, and 'surprise' significantly underrepresented. TF-IDF analysis identifies key terms indicative of each emotion, while word analysis shows differences in lexical choices across emotions. These insights inform model optimization, including the use of n-grams and balancing techniques to improve accuracy and coherence in emotion prediction.
+}
+
+%% FORSIDE %%
+\newgeometry{margin=1.8cm}
+\thispagestyle{empty}
+\begin{flushright}
+\includegraphics[width=5cm]{images/kea_logo.jpg}
+\end{flushright}	
+\vskip30mm
+\begin{flushleft}
+\large
+\huge\textbf{\title}
+\vskip2mm
+\LARGE\textbf{\subtitle}
+\vskip2mm
+\large{\date}
+\vskip3mm
+\author
+\end{flushleft}	
+\vskip15mm
+\abstract
+\vfill
+\restoregeometry

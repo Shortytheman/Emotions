@@ -1,0 +1,52 @@
+\section{Findings}
+
+\subsection{Overview}
+This section presents the key findings from our analysis, focusing on how well the different models predict emotions from random tweets. We employed three models: Logistic Regression, Decision Tree, and a Sequential Model, and evaluated their performance using metrics such as Precision, Recall, and F1-Score. We provide a comparative analysis to identify the best-performing model and discuss the insights derived from these results in relation to our research question. Additionally, we highlight how our statistical analysis of the data distribution informed our model training and optimization efforts.
+
+\subsection{Model Performance}
+
+\subsubsection{Logistic Regression}
+\textbf{Optimization and Challenges:} Our initial statistical analysis, including the frequency distribution of emotions, revealed a significant class imbalance, with emotions like "joy" being much more prevalent than "surprise." This insight informed our decision to apply class weights using sklearn's \texttt{compute\_class\_weight} method, ensuring a more balanced representation across all categories. Additionally, the TF-IDF analysis helped us refine our feature selection, focusing on the most relevant terms for each emotion. Incorporating n-grams (1,2) further improved the model's understanding of word pairs, enhancing its contextual predictions.
+
+\textbf{Performance Metrics:}
+\begin{itemize}
+  \item \textbf{Precision:} 0.85
+  \item \textbf{Recall:} 0.90
+  \item \textbf{F1-Score:} 0.87
+\end{itemize}
+
+\textbf{Analysis:} Despite optimization efforts, the model showed a tendency to misclassify similar emotions, such as "joy" and "love," which indicates a limitation in handling nuanced language differences.
+
+\subsubsection{Decision Tree}
+\textbf{Optimization and Challenges:} The frequency distribution analysis indicated a need to control the complexity of the Decision Tree model to prevent overfitting. By setting the \texttt{max\_depth} parameter based on insights from the distribution of emotions, we aimed to balance model complexity and performance. However, the Decision Tree still resulted in suboptimal performance due to its simplistic nature.
+
+\textbf{Performance Metrics:}
+\begin{itemize}
+  \item \textbf{Precision:} 0.78
+  \item \textbf{Recall:} 0.77
+  \item \textbf{F1-Score:} 0.78
+\end{itemize}
+
+\textbf{Analysis:} The Decision Tree model, while interpretable, failed to achieve high accuracy due to its susceptibility to overfitting with deeper trees.
+
+\subsubsection{Sequential Model}
+\textbf{Optimization and Challenges:} The Sequential Model, an advanced deep learning architecture, benefited significantly from the insights provided by our TF-IDF analysis. By focusing on the most relevant terms for each emotion category, the model could effectively capture the nuances of different emotions. The frequency distribution analysis also guided our approach to handle class imbalances during training.
+
+\textbf{Performance Metrics:}
+\begin{itemize}
+  \item \textbf{Precision:} 0.87
+  \item \textbf{Recall:} 0.85
+  \item \textbf{F1-Score:} 0.85
+\end{itemize}
+
+\textbf{Analysis:} The Sequential Model showed the highest precision among the three models, while the Logistic Regression model had higher recall and F1-Score. This indicates that while the Sequential Model is very good at correctly identifying positive instances, the Logistic Regression model is better at finding all relevant instances and balancing precision and recall.
+
+\subsection{Comparative Analysis}
+Among the three models evaluated, the Sequential Model provided the highest precision, but the Logistic Regression model demonstrated higher recall and F1-Score. The Decision Tree model, despite its interpretability, was not competitive due to its tendency to overfit and its simplistic approach to decision-making.
+
+\subsection{Insights and Implications}
+The findings from our model evaluations suggest that while sophisticated models like the Sequential Model offer excellent precision, Logistic Regression remains highly effective for achieving a balance between precision and recall. The frequency distribution and TF-IDF analyses were crucial in informing these model optimizations. For practical applications, this implies that depending on the specific needs (e.g., minimizing false positives vs. maximizing true positive identification), different models might be preferable.
+
+
+\subsection{Summary}
+In summary, our analysis revealed that the Sequential Model achieved the highest precision, while Logistic Regression had the highest recall and F1-Score for predicting emotions from random tweets. These findings highlight the critical role of model selection based on specific performance needs in achieving high accuracy in complex language tasks. The statistical analyses, including the frequency distribution and TF-IDF analyses, were instrumental in guiding our model optimization efforts, providing valuable insights for further research and practical implementation in AI-driven emotion recognition systems.
