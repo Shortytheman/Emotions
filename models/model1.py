@@ -12,15 +12,15 @@ import tkinter as tk
 from tkinter import messagebox
 from sklearn.utils.class_weight import compute_class_weight
 
-# Setup logging
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Load and prepare dataset
+
 logger.info("Loading dataset...")
 df = pd.read_csv('../data/emotions_cleaned.csv')
 
-# Map labels to readable form for visualization
+
 emotion_map = {
     0: 'sadness',
     1: 'joy',
@@ -31,10 +31,10 @@ emotion_map = {
 }
 df['label_name'] = df['label'].map(emotion_map)
 
-# Converting labels back to numeric for training
+
 df['label'] = df['label_name'].map({v: k for k, v in emotion_map.items()})
 
-# Check for NaN values and handle them
+
 df['cleaned_text'] = df['cleaned_text'].fillna('')
 
 logger.info("Splitting data into train and test sets...")
@@ -43,24 +43,24 @@ y = df['label']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Vectorize text data
+
 logger.info("Vectorizing text data...")
 vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
 X_train_tfidf = vectorizer.fit_transform(X_train)
 X_test_tfidf = vectorizer.transform(X_test)
 logger.info("Text data vectorized successfully.")
 
-# Compute class weights
+
 class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
 
-# Train Logistic Regression model with class weights
+
 logger.info("Training Logistic Regression model with class weights...")
 model = LogisticRegression(solver='liblinear', max_iter=100, C=3,
                            class_weight=dict(zip(np.unique(y_train), class_weights)))
 model.fit(X_train_tfidf, y_train)
 logger.info("Model trained successfully.")
 
-# Evaluate the model
+
 logger.info("Evaluating the model...")
 y_pred = model.predict(X_test_tfidf)
 
@@ -68,7 +68,7 @@ logger.info(f"Accuracy: {accuracy_score(y_test, y_pred)}")
 logger.info("Classification Report:\n" + classification_report(y_test, y_pred, target_names=list(emotion_map.values())))
 
 
-# Define predict_emotion function
+
 def predict_emotion(message, model, vectorizer, emotion_map):
     cleaned_message = re.sub(r'\W', ' ', message)
     message_tfidf = vectorizer.transform([cleaned_message])
@@ -235,17 +235,16 @@ plt.show()
 
 # Feature Importance ---------------------------------
 
-# Extract feature names
+
 feature_names = vectorizer.get_feature_names_out()
 
-# Extract coefficients
 coefficients = model.coef_
 
-# Create a DataFrame to store the coefficients for each class
+
 coef_df = pd.DataFrame(coefficients.T, index=feature_names, columns=emotion_map.values())
 
 
-# Function to plot top positive and negative features for a given class
+
 def plot_top_features(class_name, top_n=10):
     class_coefficients = coef_df[class_name]
     top_positive_coefficients = class_coefficients.sort_values(ascending=False).head(top_n)
@@ -261,7 +260,7 @@ def plot_top_features(class_name, top_n=10):
     plt.show()
 
 
-# Plot top features for each class
+
 for emotion in emotion_map.values():
     plot_top_features(emotion)
 
@@ -288,13 +287,11 @@ with open("../data/newdata.csv", "a") as file:
 
 report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
 
-# Convert the report to a DataFrame for easier processing
+
 report_df = pd.DataFrame(report).transpose()
 
-# Drop the 'accuracy' row and the 'support' column
 metrics_df = report_df.drop(['accuracy', 'macro avg', 'weighted avg'], errors='ignore').drop(columns=['support'])
 
-# Calculate the mean of precision, recall, and f1-score
 mean_precision = metrics_df['precision'].mean()
 mean_recall = metrics_df['recall'].mean()
 mean_f1_score = metrics_df['f1-score'].mean()
