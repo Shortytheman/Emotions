@@ -14,23 +14,15 @@ from sklearn.utils.class_weight import compute_class_weight
 import time
 from sklearn import tree
 
-# Setup logging
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Load and prepare dataset
+
 logger.info("Loading dataset...")
 df = pd.read_csv('../data/emotions_cleaned.csv')
 
-# Define clean_text function
-def clean_text(text):
-    text = text.lower()  # Lowercase text
-    text = re.sub(r'\b\w{1,2}\b', '', text)  # Remove short words
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-    text = re.sub(r'\s+', ' ', text).strip()  # Remove extra spaces
-    return text
 
-# Map labels to readable form for visualization
 emotion_map = {
     0: 'sadness',
     1: 'joy',
@@ -41,10 +33,10 @@ emotion_map = {
 }
 df['label_name'] = df['label'].map(emotion_map)
 
-# Converting labels back to numeric for training
+
 df['label'] = df['label_name'].map({v: k for k, v in emotion_map.items()})
 
-# Check for NaN values and handle them
+
 df['cleaned_text'] = df['cleaned_text'].fillna('')
 
 logger.info("Splitting data into train and test sets...")
@@ -53,44 +45,37 @@ y = df['label']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Vectorize text data
+
 logger.info("Vectorizing text data...")
 vectorizer = TfidfVectorizer(max_features=15000, ngram_range=(1, 2))
 X_train_tfidf = vectorizer.fit_transform(X_train)
 X_test_tfidf = vectorizer.transform(X_test)
 logger.info("Text data vectorized successfully.")
 
-# Compute class weights
+
 class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
 
-# Train Decision Tree model with or without class weights
+
 logger.info("Training Decision Tree model...")
 start_time = time.time()
-# Compute class weights for imbalanced dataset --- 83.81% accuracy
-# class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
-# model = DecisionTreeClassifier(random_state=42, class_weight=dict(zip(np.unique(y_train), class_weights)))
-# model.fit(X_train_tfidf, y_train) 
-
-# Train model without class weights --- 83.86% accuracy (longer training time than with class weights)
-# Train model without max_depth for better accuracy
 model = DecisionTreeClassifier(random_state=42)
 model.fit(X_train_tfidf, y_train)
 
-# Train a new model with max_depth=10 for visualization
+
 model_for_plot = DecisionTreeClassifier(max_depth=5, random_state=42)
 model_for_plot.fit(X_train_tfidf, y_train)
 
 logger.info("Model trained successfully.")
 logger.info(f"Training time: {time.time() - start_time} seconds")
 
-# Evaluate the model
+
 logger.info("Evaluating the model...")
 y_pred = model.predict(X_test_tfidf)
 
 logger.info(f"Accuracy: {accuracy_score(y_test, y_pred)}")
 logger.info("Classification Report:\n" + classification_report(y_test, y_pred, target_names=list(emotion_map.values())))
 
-# Define predict_emotion function
+
 def predict_emotion(message, model, vectorizer, emotion_map):
     cleaned_message = clean_text(message)
     message_tfidf = vectorizer.transform([cleaned_message])
@@ -98,7 +83,7 @@ def predict_emotion(message, model, vectorizer, emotion_map):
     predicted_emotion = emotion_map[prediction[0]]
     return predicted_emotion
 
-# GUI Setup
+
 flag = True
 user_responses = []
 
@@ -212,12 +197,11 @@ with open("../data/newdata.csv", "a") as file:
             file.write(f"{input_text}, {mapped_user_emotion}\n")
 
 
-#Plotting--------------------------------
 
 conf_matrix = confusion_matrix(y_test, y_pred)
 conf_matrix_normalized = conf_matrix.astype('float') / conf_matrix.sum(axis=1)[:, np.newaxis]
 
-# Plotting the Confusion Matrix
+
 plt.figure(figsize=(10, 7))
 sns.heatmap(conf_matrix_normalized, annot=True, cmap='Blues', xticklabels=emotion_map.values(), yticklabels=emotion_map.values())
 plt.xlabel('Predicted Labels')
@@ -226,20 +210,20 @@ plt.title('Confusion Matrix')
 plt.show()
 
 
-#Classification_report---------------------------------
+
 
 y_test_names = y_test.map(emotion_map)
 y_pred_names = pd.Series(y_pred).map(emotion_map)
 
 report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
 
-# Convert the report to a DataFrame for easier plotting
+
 report_df = pd.DataFrame(report).transpose()
 
-# Filter out support column as it's not needed for this plot
+
 metrics_df = report_df[['precision', 'recall', 'f1-score']].drop('accuracy')
 
-# Plotting the metrics
+
 plt.figure(figsize=(12, 8))
 metrics_df.plot(kind='bar', figsize=(12, 8), cmap='viridis')
 plt.title('Precision, Recall, and F1-Score for Each Emotion Class')
@@ -249,28 +233,28 @@ plt.xticks(rotation=45)
 plt.ylim(0, 1)
 plt.legend(loc='lower right')
 plt.show()
-#----------------------------------------
 
-# Plot the decision tree
-plt.figure(figsize=(10, 10))  # Set the figure size (it can be changed)
+
+
+plt.figure(figsize=(10, 10)) 
 tree.plot_tree(model_for_plot, filled=True, rounded=True, class_names=list(emotion_map.values()), feature_names=vectorizer.get_feature_names_out())
 plt.title("Decision Tree Visualization")
 plt.show()
 
 report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
 
-# Convert the report to a DataFrame for easier processing
+
 report_df = pd.DataFrame(report).transpose()
 
-# Drop the 'accuracy' row and the 'support' column
+
 metrics_df = report_df.drop(['accuracy', 'macro avg', 'weighted avg'], errors='ignore').drop(columns=['support'])
 
-# Calculate the mean of precision, recall, and f1-score
+
 mean_precision = metrics_df['precision'].mean()
 mean_recall = metrics_df['recall'].mean()
 mean_f1_score = metrics_df['f1-score'].mean()
 
-# Print the results
+
 print(f"Mean Precision: {mean_precision:.4f}")
 print(f"Mean Recall: {mean_recall:.4f}")
 print(f"Mean F1-Score: {mean_f1_score:.4f}")
