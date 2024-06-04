@@ -2,16 +2,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-data = pd.read_csv('../data/emotions_cleaned.csv')
+data = pd.read_csv("../data/emotions_cleaned.csv")
 
 
-label_map = {0: 'sadness', 1: 'joy', 2: 'love', 3: 'anger', 4: 'fear', 5: 'surprise'}
-data['emotion'] = data['label'].map(label_map)
+label_map = {0: "sadness", 1: "joy", 2: "love", 3: "anger", 4: "fear", 5: "surprise"}
+data["emotion"] = data["label"].map(label_map)
 
-emotion_counts = data['emotion'].value_counts().sort_index()
+emotion_counts = data["emotion"].value_counts().sort_index()
 
 
-all_labels = pd.Index(['sadness', 'joy', 'love', 'anger', 'fear', 'surprise'])
+all_labels = pd.Index(["sadness", "joy", "love", "anger", "fear", "surprise"])
 emotion_counts = emotion_counts.reindex(all_labels, fill_value=0)
 
 
