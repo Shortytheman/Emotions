@@ -16,22 +16,22 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import re
 
-# Setup logging
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Load and prepare dataset
+
 logger.info("Loading dataset...")
 df = pd.read_csv('../data/emotions_cleaned.csv')
 
-# Map labels to readable form for visualization
+
 emotion_map = {0: 'sadness', 1: 'joy', 2: 'love', 3: 'anger', 4: 'fear', 5: 'surprise'}
 df['label_name'] = df['label'].map(emotion_map)
 
-# Converting labels back to numeric for training
+
 df['label'] = df['label_name'].map({v: k for k, v in emotion_map.items()})
 
-# Check for NaN values and handle them
+
 df['cleaned_text'] = df['cleaned_text'].fillna('')
 
 logger.info("Splitting data into train and test sets...")
@@ -40,18 +40,18 @@ y = df['label']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Vectorize text data
+
 logger.info("Vectorizing text data...")
 vectorizer = TfidfVectorizer(max_features=2000, ngram_range=(1, 2))
 X_train_tfidf = vectorizer.fit_transform(X_train).toarray()
 X_test_tfidf = vectorizer.transform(X_test).toarray()
 logger.info("Text data vectorized successfully.")
 
-# Convert labels to one-hot encoding
+
 y_train_enc = to_categorical(y_train)
 y_test_enc = to_categorical(y_test)
 
-# Define the model
+
 model = Sequential()
 model.add(Dense(512, input_shape=(2000,), activation='relu'))
 model.add(Dropout(0.5))
@@ -61,12 +61,12 @@ model.add(Dense(128, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(len(emotion_map), activation='softmax'))
 
-# Compile the model
+
 model.compile(loss='categorical_crossentropy',
               optimizer=Adam(learning_rate=0.001),
               metrics=['accuracy'])
 
-# Train the model
+
 logger.info("Training the model...")
 history = model.fit(X_train_tfidf, y_train_enc,
                     epochs=1,
@@ -75,18 +75,18 @@ history = model.fit(X_train_tfidf, y_train_enc,
                     verbose=1)
 logger.info("Model trained successfully.")
 
-# Evaluate the model
+
 logger.info("Evaluating the model...")
 loss, accuracy = model.evaluate(X_test_tfidf, y_test_enc, verbose=0)
 logger.info(f"Accuracy: {accuracy}")
 
-# Get classification report
+
 y_pred_enc = model.predict(X_test_tfidf)
 y_pred = np.argmax(y_pred_enc, axis=1)
 
 logger.info("Classification Report:\n" + classification_report(y_test, y_pred, target_names=list(emotion_map.values())))
 
-# Define predict_emotion function
+
 def predict_emotion(message, model, vectorizer, emotion_map):
     cleaned_message = re.sub(r'\W', ' ', message)
     message_tfidf = vectorizer.transform([cleaned_message]).toarray()
@@ -94,7 +94,7 @@ def predict_emotion(message, model, vectorizer, emotion_map):
     predicted_emotion = emotion_map[np.argmax(prediction)]
     return predicted_emotion
 
-# GUI Setup
+
 flag = True
 user_responses = []
 
@@ -208,7 +208,7 @@ with open("../data/newdata.csv", "a") as file:
             mapped_user_emotion = next(key for key, value in emotion_map.items() if value == user_emotion)
             file.write(f"{input_text}, {mapped_user_emotion}\n")
 
-# Plotting --------------------------------
+
 
 conf_matrix = confusion_matrix(y_test, y_pred)
 conf_matrix_normalized = conf_matrix.astype('float') / conf_matrix.sum(axis=1)[:, np.newaxis]
@@ -222,17 +222,17 @@ plt.ylabel('True Labels')
 plt.title('Confusion Matrix')
 plt.show()
 
-# Classification Report ---------------------------------
+
 
 report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
 
-# Convert the report to a DataFrame for easier plotting
+
 report_df = pd.DataFrame(report).transpose()
 
-# Filter out support column as it's not needed for this plot
+
 metrics_df = report_df[['precision', 'recall', 'f1-score']].drop('accuracy')
 
-# Plotting the metrics
+
 plt.figure(figsize=(12, 8))
 metrics_df.plot(kind='bar', figsize=(12, 8), cmap='viridis')
 plt.title('Precision, Recall, and F1-Score for Each Emotion Class')
@@ -243,35 +243,9 @@ plt.ylim(0, 1)
 plt.legend(loc='lower right')
 plt.show()
 
-# Feature Importance ---------------------------------
 
-# Extract feature names
+
 feature_names = vectorizer.get_feature_names_out()
-
-# Extract coefficients
-#coefficients = model.coef_
-
-# Create a DataFrame to store the coefficients for each class
-#coef_df = pd.DataFrame(coefficients.T, index=feature_names, columns=emotion_map.values())
-
-# Function to plot top positive and negative features for a given class
-# def plot_top_features(class_name, top_n=10):
-#     class_coefficients = coef_df[class_name]
-#     top_positive_coefficients = class_coefficients.sort_values(ascending=False).head(top_n)
-#     top_negative_coefficients = class_coefficients.sort_values(ascending=False).tail(top_n)
-#
-#     top_coefficients = pd.concat([top_positive_coefficients, top_negative_coefficients])
-#
-#     plt.figure(figsize=(10, 6))
-#     sns.barplot(x=top_coefficients.values, y=top_coefficients.index, palette='viridis')
-#     plt.title(f'Top {top_n} Positive and Negative Features for {class_name.capitalize()}')
-#     plt.xlabel('Coefficient Value')
-#     plt.ylabel('Feature')
-#     plt.show()
-#
-# # Plot top features for each class
-# for emotion in emotion_map.values():
-#     plot_top_features(emotion)
 
 mean_precision = metrics_df['precision'].mean()
 mean_recall = metrics_df['recall'].mean()
