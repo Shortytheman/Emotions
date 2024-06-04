@@ -198,7 +198,7 @@ with open("../data/newdata.csv", "a") as file:
             mapped_user_emotion = next(key for key, value in emotion_map.items() if value == user_emotion)
             file.write(f"{input_text}, {mapped_user_emotion}\n")
 
-# Plotting --------------------------------
+
 
 conf_matrix = confusion_matrix(y_test, y_pred)
 conf_matrix_normalized = conf_matrix.astype('float') / conf_matrix.sum(axis=1)[:, np.newaxis]
@@ -212,17 +212,16 @@ plt.ylabel('True Labels')
 plt.title('Confusion Matrix')
 plt.show()
 
-# Classification Report ---------------------------------
 
 report = classification_report(y_test, y_pred, target_names=list(emotion_map.values()), output_dict=True)
 
-# Convert the report to a DataFrame for easier plotting
+
 report_df = pd.DataFrame(report).transpose()
 
-# Filter out support column as it's not needed for this plot
+
 metrics_df = report_df[['precision', 'recall', 'f1-score']].drop('accuracy')
 
-# Plotting the metrics
+
 plt.figure(figsize=(12, 8))
 metrics_df.plot(kind='bar', figsize=(12, 8), cmap='viridis')
 plt.title('Precision, Recall, and F1-Score for Each Emotion Class')
@@ -233,7 +232,7 @@ plt.ylim(0, 1)
 plt.legend(loc='lower right')
 plt.show()
 
-# Feature Importance ---------------------------------
+
 
 
 feature_names = vectorizer.get_feature_names_out()
@@ -265,7 +264,7 @@ for emotion in emotion_map.values():
     plot_top_features(emotion)
 
 
-# Clean up and save responses ---------------------------------
+
 def is_valid_input(text):
     words = text.split()
     if len(words) < 5 or len(words) > 35:
@@ -296,7 +295,7 @@ mean_precision = metrics_df['precision'].mean()
 mean_recall = metrics_df['recall'].mean()
 mean_f1_score = metrics_df['f1-score'].mean()
 
-# Print the results
+
 print(f"Mean Precision: {mean_precision:.4f}")
 print(f"Mean Recall: {mean_recall:.4f}")
 print(f"Mean F1-Score: {mean_f1_score:.4f}")
